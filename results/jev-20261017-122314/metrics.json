@@ -1,0 +1,1144 @@
+{
+  "run": {
+    "run_id": "jev-20261017-122314",
+    "backend": "jev",
+    "api_url": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-1.13.0",
+    "n_items": "2000",
+    "started_at": "2026-10-17 12:23:14.720515+00:00",
+    "finished_at": "2026-10-17 12:23:35.562027+00:00",
+    "notes": null
+  },
+  "sample": {
+    "credit reporting": 1248,
+    "debt collection": 239,
+    "credit card": 142,
+    "checking or savings account": 124,
+    "mortgage": 110,
+    "money transfer or virtual currency": 39,
+    "vehicle loan or lease": 38,
+    "student loan": 36,
+    "payday, title, or personal loan": 24
+  },
+  "experiments": {
+    "choice_base": {
+      "n": 2000,
+      "k": 9,
+      "accuracy": 0.7705,
+      "accuracy_ci": [
+        0.7539875,
+        0.7895
+      ],
+      "macro_f1": 0.6575129924692104,
+      "mean_confidence": 0.8536428787878788,
+      "ece": 0.08873893939393937,
+      "ece_ci": [
+        0.07500634722222228,
+        0.10612483838383828
+      ],
+      "ece_mass": 0.08424570707070711,
+      "brier": 0.3435302414651566,
+      "nll": 1.2914395865316122,
+      "exact_zeros": 12104,
+      "smallest_nonzero_prob": 0.009999999999999998,
+      "probability_floor": 0.004999999999999999,
+      "rows_label_prob_zero": 54,
+      "nll_floored": 0.7182294895192631,
+      "temperature": 1.1251489267539552,
+      "ece_after_temperature": 0.02946896415118322,
+      "nll_after_temperature": 0.7102908686424454,
+      "temperature_unfloored": 3.9891020780260744,
+      "ece_after_temperature_unfloored": 0.16693484953365395,
+      "ece_after_isotonic": 0.027199920327808644,
+      "reliability": [
+        [
+          0.0,
+          0.1,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.1,
+          0.2,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.2,
+          0.30000000000000004,
+          4,
+          0.2675,
+          0.25
+        ],
+        [
+          0.30000000000000004,
+          0.4,
+          26,
+          0.36989121989121987,
+          0.4230769230769231
+        ],
+        [
+          0.4,
+          0.5,
+          63,
+          0.4523809523809524,
+          0.49206349206349204
+        ],
+        [
+          0.5,
+          0.6000000000000001,
+          165,
+          0.5472935414753597,
+          0.503030303030303
+        ],
+        [
+          0.6000000000000001,
+          0.7000000000000001,
+          162,
+          0.6558386332460407,
+          0.5246913580246914
+        ],
+        [
+          0.7000000000000001,
+          0.8,
+          165,
+          0.7544603611876339,
+          0.6121212121212121
+        ],
+        [
+          0.8,
+          0.9,
+          279,
+          0.8483280837044278,
+          0.7132616487455197
+        ],
+        [
+          0.9,
+          1.0,
+          1136,
+          0.9774470052639067,
+          0.9066901408450704
+        ]
+      ],
+      "per_class": [
+        {
+          "option": "credit reporting",
+          "support": 1248,
+          "recall": 0.8229166666666666,
+          "precision": 0.9040492957746479,
+          "predicted": 1136
+        },
+        {
+          "option": "debt collection",
+          "support": 239,
+          "recall": 0.5230125523012552,
+          "precision": 0.6906077348066298,
+          "predicted": 181
+        },
+        {
+          "option": "mortgage",
+          "support": 110,
+          "recall": 0.8454545454545455,
+          "precision": 0.775,
+          "predicted": 120
+        },
+        {
+          "option": "credit card",
+          "support": 142,
+          "recall": 0.7746478873239436,
+          "precision": 0.4247104247104247,
+          "predicted": 259
+        },
+        {
+          "option": "checking or savings account",
+          "support": 124,
+          "recall": 0.7419354838709677,
+          "precision": 0.7603305785123967,
+          "predicted": 121
+        },
+        {
+          "option": "student loan",
+          "support": 36,
+          "recall": 0.6944444444444444,
+          "precision": 0.43103448275862066,
+          "predicted": 58
+        },
+        {
+          "option": "money transfer or virtual currency",
+          "support": 39,
+          "recall": 0.6410256410256411,
+          "precision": 0.7352941176470589,
+          "predicted": 34
+        },
+        {
+          "option": "vehicle loan or lease",
+          "support": 38,
+          "recall": 0.7105263157894737,
+          "precision": 0.5869565217391305,
+          "predicted": 46
+        },
+        {
+          "option": "payday, title, or personal loan",
+          "support": 24,
+          "recall": 0.7083333333333334,
+          "precision": 0.37777777777777777,
+          "predicted": 45
+        }
+      ],
+      "reported_confidence_vs_max_prob_corr": 0.9998862533900754
+    },
+    "choice_other": {
+      "n": 2000,
+      "k": 10,
+      "accuracy": 0.762,
+      "accuracy_ci": [
+        0.7445,
+        0.7805124999999999
+      ],
+      "macro_f1": 0.6565763189922476,
+      "mean_confidence": 0.8432980303030304,
+      "ece": 0.08757520202020203,
+      "ece_ci": [
+        0.07431832702020201,
+        0.10483552146464645
+      ],
+      "ece_mass": 0.0855123737373738,
+      "brier": 0.3548216610447913,
+      "nll": 1.4587676712820936,
+      "exact_zeros": 13471,
+      "smallest_nonzero_prob": 0.009999999999999998,
+      "probability_floor": 0.004999999999999999,
+      "rows_label_prob_zero": 65,
+      "nll_floored": 0.7660304360042962,
+      "temperature": 1.108047286768207,
+      "ece_after_temperature": 0.032800717598513725,
+      "nll_after_temperature": 0.759398400332819,
+      "temperature_unfloored": 4.133006700111068,
+      "ece_after_temperature_unfloored": 0.18889063127044234,
+      "ece_after_isotonic": 0.02282625323663416,
+      "reliability": [
+        [
+          0.0,
+          0.1,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.1,
+          0.2,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.2,
+          0.30000000000000004,
+          5,
+          0.26256565656565656,
+          0.0
+        ],
+        [
+          0.30000000000000004,
+          0.4,
+          31,
+          0.36483870967741927,
+          0.3225806451612903
+        ],
+        [
+          0.4,
+          0.5,
+          91,
+          0.45233877233877223,
+          0.5274725274725275
+        ],
+        [
+          0.5,
+          0.6000000000000001,
+          166,
+          0.5525745405865888,
+          0.4939759036144578
+        ],
+        [
+          0.6000000000000001,
+          0.7000000000000001,
+          156,
+          0.6565268065268065,
+          0.4935897435897436
+        ],
+        [
+          0.7000000000000001,
+          0.8,
+          183,
+          0.7493768283932218,
+          0.6284153005464481
+        ],
+        [
+          0.8,
+          0.9,
+          254,
+          0.8493712717728467,
+          0.7244094488188977
+        ],
+        [
+          0.9,
+          1.0,
+          1114,
+          0.9746755707886768,
+          0.9048473967684022
+        ]
+      ],
+      "per_class": [
+        {
+          "option": "credit reporting",
+          "support": 1248,
+          "recall": 0.8213141025641025,
+          "precision": 0.9054770318021201,
+          "predicted": 1132
+        },
+        {
+          "option": "debt collection",
+          "support": 239,
+          "recall": 0.5230125523012552,
+          "precision": 0.7062146892655368,
+          "predicted": 177
+        },
+        {
+          "option": "mortgage",
+          "support": 110,
+          "recall": 0.8272727272727273,
+          "precision": 0.7913043478260869,
+          "predicted": 115
+        },
+        {
+          "option": "credit card",
+          "support": 142,
+          "recall": 0.7535211267605634,
+          "precision": 0.4262948207171315,
+          "predicted": 251
+        },
+        {
+          "option": "checking or savings account",
+          "support": 124,
+          "recall": 0.6935483870967742,
+          "precision": 0.7962962962962963,
+          "predicted": 108
+        },
+        {
+          "option": "student loan",
+          "support": 36,
+          "recall": 0.7777777777777778,
+          "precision": 0.4666666666666667,
+          "predicted": 60
+        },
+        {
+          "option": "money transfer or virtual currency",
+          "support": 39,
+          "recall": 0.48717948717948717,
+          "precision": 0.76,
+          "predicted": 25
+        },
+        {
+          "option": "vehicle loan or lease",
+          "support": 38,
+          "recall": 0.7105263157894737,
+          "precision": 0.6428571428571429,
+          "predicted": 42
+        },
+        {
+          "option": "payday, title, or personal loan",
+          "support": 24,
+          "recall": 0.6666666666666666,
+          "precision": 0.4,
+          "predicted": 40
+        },
+        {
+          "option": "other financial product or service",
+          "support": 0,
+          "recall": null,
+          "precision": 0.0,
+          "predicted": 50
+        }
+      ],
+      "reported_confidence_vs_max_prob_corr": 0.9998860746510913
+    },
+    "choice_shift3": {
+      "n": 2000,
+      "k": 9,
+      "accuracy": 0.7595,
+      "accuracy_ci": [
+        0.742,
+        0.7765
+      ],
+      "macro_f1": 0.6531223724960129,
+      "mean_confidence": 0.8535345454545454,
+      "ece": 0.09420454545454547,
+      "ece_ci": [
+        0.08121509722222223,
+        0.11295752398989904
+      ],
+      "ece_mass": 0.09403454545454547,
+      "brier": 0.35573088973574124,
+      "nll": 1.3164471402597555,
+      "exact_zeros": 12173,
+      "smallest_nonzero_prob": 0.009999999999999998,
+      "probability_floor": 0.004999999999999999,
+      "rows_label_prob_zero": 54,
+      "nll_floored": 0.743408891699321,
+      "temperature": 1.1379210920930767,
+      "ece_after_temperature": 0.02865512012904411,
+      "nll_after_temperature": 0.7330282236868451,
+      "temperature_unfloored": 3.990614864313339,
+      "ece_after_temperature_unfloored": 0.16677896438136966,
+      "ece_after_isotonic": 0.04281006752700346,
+      "reliability": [
+        [
+          0.0,
+          0.1,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.1,
+          0.2,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.2,
+          0.30000000000000004,
+          3,
+          0.2842760942760943,
+          0.3333333333333333
+        ],
+        [
+          0.30000000000000004,
+          0.4,
+          27,
+          0.36074074074074075,
+          0.3333333333333333
+        ],
+        [
+          0.4,
+          0.5,
+          73,
+          0.45211014252110143,
+          0.4246575342465753
+        ],
+        [
+          0.5,
+          0.6000000000000001,
+          155,
+          0.5500821114369503,
+          0.4645161290322581
+        ],
+        [
+          0.6000000000000001,
+          0.7000000000000001,
+          147,
+          0.6537957809386381,
+          0.5238095238095238
+        ],
+        [
+          0.7000000000000001,
+          0.8,
+          172,
+          0.7536392999765094,
+          0.622093023255814
+        ],
+        [
+          0.8,
+          0.9,
+          274,
+          0.8499690333996903,
+          0.708029197080292
+        ],
+        [
+          0.9,
+          1.0,
+          1149,
+          0.9743986426492954,
+          0.8946910356832027
+        ]
+      ],
+      "per_class": [
+        {
+          "option": "credit card",
+          "support": 142,
+          "recall": 0.7887323943661971,
+          "precision": 0.4014336917562724,
+          "predicted": 279
+        },
+        {
+          "option": "checking or savings account",
+          "support": 124,
+          "recall": 0.7338709677419355,
+          "precision": 0.7520661157024794,
+          "predicted": 121
+        },
+        {
+          "option": "student loan",
+          "support": 36,
+          "recall": 0.6666666666666666,
+          "precision": 0.43636363636363634,
+          "predicted": 55
+        },
+        {
+          "option": "money transfer or virtual currency",
+          "support": 39,
+          "recall": 0.6153846153846154,
+          "precision": 0.7272727272727273,
+          "predicted": 33
+        },
+        {
+          "option": "vehicle loan or lease",
+          "support": 38,
+          "recall": 0.7368421052631579,
+          "precision": 0.56,
+          "predicted": 50
+        },
+        {
+          "option": "payday, title, or personal loan",
+          "support": 24,
+          "recall": 0.7083333333333334,
+          "precision": 0.37777777777777777,
+          "predicted": 45
+        },
+        {
+          "option": "credit reporting",
+          "support": 1248,
+          "recall": 0.7956730769230769,
+          "precision": 0.9118457300275482,
+          "predicted": 1089
+        },
+        {
+          "option": "debt collection",
+          "support": 239,
+          "recall": 0.5648535564853556,
+          "precision": 0.6490384615384616,
+          "predicted": 208
+        },
+        {
+          "option": "mortgage",
+          "support": 110,
+          "recall": 0.8636363636363636,
+          "precision": 0.7916666666666666,
+          "predicted": 120
+        }
+      ],
+      "reported_confidence_vs_max_prob_corr": 0.9998958966537795
+    },
+    "choice_shift6": {
+      "n": 2000,
+      "k": 9,
+      "accuracy": 0.7635,
+      "accuracy_ci": [
+        0.7464875000000001,
+        0.7825
+      ],
+      "macro_f1": 0.6554946750784352,
+      "mean_confidence": 0.8524398484848486,
+      "ece": 0.09285025252525256,
+      "ece_ci": [
+        0.08155027020202021,
+        0.11205773358585856
+      ],
+      "ece_mass": 0.08924984848484849,
+      "brier": 0.3586714799408223,
+      "nll": 1.3601666638460925,
+      "exact_zeros": 12009,
+      "smallest_nonzero_prob": 0.009999999999999998,
+      "probability_floor": 0.004999999999999999,
+      "rows_label_prob_zero": 57,
+      "nll_floored": 0.7532275304596805,
+      "temperature": 1.1451562183416568,
+      "ece_after_temperature": 0.034954088571857236,
+      "nll_after_temperature": 0.7417490801705662,
+      "temperature_unfloored": 4.131639073569273,
+      "ece_after_temperature_unfloored": 0.1719154547049718,
+      "ece_after_isotonic": 0.027182815577854798,
+      "reliability": [
+        [
+          0.0,
+          0.1,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.1,
+          0.2,
+          0,
+          NaN,
+          NaN
+        ],
+        [
+          0.2,
+          0.30000000000000004,
+          4,
+          0.28500000000000003,
+          0.0
+        ],
+        [
+          0.30000000000000004,
+          0.4,
+          25,
+          0.3655999999999999,
+          0.32
+        ],
+        [
+          0.4,
+          0.5,
+          78,
+          0.45230769230769224,
+          0.46153846153846156
+        ],
+        [
+          0.5,
+          0.6000000000000001,
+          154,
+          0.5487636101272465,
+          0.5584415584415584
+        ],
+        [
+          0.6000000000000001,
+          0.7000000000000001,
+          158,
+          0.6569760900140647,
+          0.47468354430379744
+        ],
+        [
+          0.7000000000000001,
+          0.8,
+          177,
+          0.7550282485875706,
+          0.655367231638418
+        ],
+        [
+          0.8,
+          0.9,
+          261,
+          0.8519845969271257,
+          0.7011494252873564
+        ],
+        [
+          0.9,
+          1.0,
+          1143,
+          0.9755029737444436,
+          0.89501312335958
+        ]
+      ],
+      "per_class": [
+        {
+          "option": "money transfer or virtual currency",
+          "support": 39,
+          "recall": 0.6666666666666666,
+          "precision": 0.6666666666666666,
+          "predicted": 39
+        },
+        {
+          "option": "vehicle loan or lease",
+          "support": 38,
+          "recall": 0.7105263157894737,
+          "precision": 0.5510204081632653,
+          "predicted": 49
+        },
+        {
+          "option": "payday, title, or personal loan",
+          "support": 24,
+          "recall": 0.7083333333333334,
+          "precision": 0.3953488372093023,
+          "predicted": 43
+        },
+        {
+          "option": "credit reporting",
+          "support": 1248,
+          "recall": 0.7988782051282052,
+          "precision": 0.9163602941176471,
+          "predicted": 1088
+        },
+        {
+          "option": "debt collection",
+          "support": 239,
+          "recall": 0.5564853556485355,
+          "precision": 0.6584158415841584,
+          "predicted": 202
+        },
+        {
+          "option": "mortgage",
+          "support": 110,
+          "recall": 0.8454545454545455,
+          "precision": 0.7380952380952381,
+          "predicted": 126
+        },
+        {
+          "option": "credit card",
+          "support": 142,
+          "recall": 0.795774647887324,
+          "precision": 0.4232209737827715,
+          "predicted": 267
+        },
+        {
+          "option": "checking or savings account",
+          "support": 124,
+          "recall": 0.7661290322580645,
+          "precision": 0.7421875,
+          "predicted": 128
+        },
+        {
+          "option": "student loan",
+          "support": 36,
+          "recall": 0.7222222222222222,
+          "precision": 0.4482758620689655,
+          "predicted": 58
+        }
+      ],
+      "reported_confidence_vs_max_prob_corr": 0.9998920594398154
+    },
+    "noul_debt_collection": {
+      "n": 2000,
+      "prevalence": 0.1195,
+      "auroc": 0.8835639221724059,
+      "auroc_ci": [
+        0.8551744886017383,
+        0.9089439177189615
+      ],
+      "ece": 0.240035,
+      "ece_ci": [
+        0.228224875,
+        0.251931125
+      ],
+      "ece_mass": 0.240035,
+      "brier": 0.13207785000000002,
+      "nll": 0.43171029195301286,
+      "precision_at_0.5": 0.4298850574712644,
+      "recall_at_0.5": 0.7824267782426778,
+      "f1_at_0.5": 0.5548961424332344,
+      "best_f1": 0.6332046332046333,
+      "best_f1_threshold": 0.65,
+      "ece_after_isotonic": 0.015795392184128055,
+      "brier_after_isotonic": 0.06507396822335593,
+      "ece_after_platt": 0.014999057900689491,
+      "brier_after_platt": 0.06480786266021174,
+      "reliability": [
+        [
+          0.0,
+          0.1,
+          121,
+          0.06859504132231406,
+          0.0
+        ],
+        [
+          0.1,
+          0.2,
+          384,
+          0.14830729166666667,
+          0.0234375
+        ],
+        [
+          0.2,
+          0.30000000000000004,
+          512,
+          0.24890625,
+          0.025390625
+        ],
+        [
+          0.30000000000000004,
+          0.4,
+          340,
+          0.3483529411764706,
+          0.041176470588235294
+        ],
+        [
+          0.4,
+          0.5,
+          208,
+          0.44043269230769233,
+          0.07692307692307693
+        ],
+        [
+          0.5,
+          0.6000000000000001,
+          132,
+          0.5478030303030303,
+          0.12121212121212122
+        ],
+        [
+          0.6000000000000001,
+          0.7000000000000001,
+          66,
+          0.6549999999999999,
+          0.3181818181818182
+        ],
+        [
+          0.7000000000000001,
+          0.8,
+          69,
+          0.7495652173913043,
+          0.43478260869565216
+        ],
+        [
+          0.8,
+          0.9,
+          90,
+          0.8501111111111112,
+          0.6555555555555556
+        ],
+        [
+          0.9,
+          1.0,
+          78,
+          0.9302564102564103,
+          0.782051282051282
+        ]
+      ]
+    },
+    "noul_incorrect_report": {
+      "n": 2000,
+      "prevalence": 0.281,
+      "auroc": 0.7476557743801939,
+      "auroc_ci": [
+        0.7252379725234045,
+        0.7672403189624682
+      ],
+      "ece": 0.379955,
+      "ece_ci": [
+        0.36286475,
+        0.39756125000000003
+      ],
+      "ece_mass": 0.37995500000000004,
+      "brier": 0.33178075,
+      "nll": 0.9822154089600534,
+      "precision_at_0.5": 0.37639664804469275,
+      "recall_at_0.5": 0.9590747330960854,
+      "f1_at_0.5": 0.5406218655967904,
+      "best_f1": 0.5666474321984997,
+      "best_f1_threshold": 0.71,
+      "ece_after_isotonic": 0.02350871176948717,
+      "brier_after_isotonic": 0.17202290190280983,
+      "ece_after_platt": 0.03360689365153341,
+      "brier_after_platt": 0.1724892610917466,
+      "reliability": [
+        [
+          0.0,
+          0.1,
+          93,
+          0.06161290322580645,
+          0.0
+        ],
+        [
+          0.1,
+          0.2,
+          169,
+          0.14437869822485205,
+          0.023668639053254437
+        ],
+        [
+          0.2,
+          0.30000000000000004,
+          132,
+          0.24530303030303033,
+          0.045454545454545456
+        ],
+        [
+          0.30000000000000004,
+          0.4,
+          77,
+          0.3527272727272727,
+          0.05194805194805195
+        ],
+        [
+          0.4,
+          0.5,
+          97,
+          0.45041237113402066,
+          0.09278350515463918
+        ],
+        [
+          0.5,
+          0.6000000000000001,
+          114,
+          0.5501754385964913,
+          0.15789473684210525
+        ],
+        [
+          0.6000000000000001,
+          0.7000000000000001,
+          147,
+          0.6575510204081633,
+          0.20408163265306123
+        ],
+        [
+          0.7000000000000001,
+          0.8,
+          159,
+          0.7533962264150945,
+          0.29559748427672955
+        ],
+        [
+          0.8,
+          0.9,
+          423,
+          0.8533806146572105,
+          0.3900709219858156
+        ],
+        [
+          0.9,
+          1.0,
+          589,
+          0.9310696095076401,
+          0.47368421052631576
+        ]
+      ]
+    }
+  },
+  "experiment_meta": {
+    "choice_base": {
+      "question": "Which financial product is this consumer complaint about?",
+      "options": [
+        "credit reporting",
+        "debt collection",
+        "mortgage",
+        "credit card",
+        "checking or savings account",
+        "student loan",
+        "money transfer or virtual currency",
+        "vehicle loan or lease",
+        "payday, title, or personal loan"
+      ],
+      "seconds": 3.5252254009246826,
+      "stats": {
+        "api_ms": 50931.864738,
+        "errors": 0,
+        "batches": 0,
+        "retries": 0,
+        "requests": 100,
+        "cache_hits": 1964,
+        "input_tokens": 628231,
+        "output_tokens": 208308,
+        "rows_evaluated": 2000,
+        "estimated_cost_usd": 0.026386
+      }
+    },
+    "choice_other": {
+      "question": "Which financial product is this consumer complaint about?",
+      "options": [
+        "credit reporting",
+        "debt collection",
+        "mortgage",
+        "credit card",
+        "checking or savings account",
+        "student loan",
+        "money transfer or virtual currency",
+        "vehicle loan or lease",
+        "payday, title, or personal loan",
+        "other financial product or service"
+      ],
+      "seconds": 3.3360660076141357,
+      "stats": {
+        "api_ms": 48860.363483,
+        "errors": 0,
+        "batches": 0,
+        "retries": 0,
+        "requests": 100,
+        "cache_hits": 1971,
+        "input_tokens": 648231,
+        "output_tokens": 230356,
+        "rows_evaluated": 2000,
+        "estimated_cost_usd": 0.027226
+      }
+    },
+    "choice_shift3": {
+      "question": "Which financial product is this consumer complaint about?",
+      "options": [
+        "credit card",
+        "checking or savings account",
+        "student loan",
+        "money transfer or virtual currency",
+        "vehicle loan or lease",
+        "payday, title, or personal loan",
+        "credit reporting",
+        "debt collection",
+        "mortgage"
+      ],
+      "seconds": 3.237326145172119,
+      "stats": {
+        "api_ms": 45260.931015,
+        "errors": 0,
+        "batches": 0,
+        "retries": 0,
+        "requests": 100,
+        "cache_hits": 1968,
+        "input_tokens": 628231,
+        "output_tokens": 208339,
+        "rows_evaluated": 2000,
+        "estimated_cost_usd": 0.026386
+      }
+    },
+    "choice_shift6": {
+      "question": "Which financial product is this consumer complaint about?",
+      "options": [
+        "money transfer or virtual currency",
+        "vehicle loan or lease",
+        "payday, title, or personal loan",
+        "credit reporting",
+        "debt collection",
+        "mortgage",
+        "credit card",
+        "checking or savings account",
+        "student loan"
+      ],
+      "seconds": 3.65507435798645,
+      "stats": {
+        "api_ms": 45602.654934,
+        "errors": 0,
+        "batches": 0,
+        "retries": 0,
+        "requests": 100,
+        "cache_hits": 1961,
+        "input_tokens": 628231,
+        "output_tokens": 208358,
+        "rows_evaluated": 2000,
+        "estimated_cost_usd": 0.026386
+      }
+    },
+    "noul_debt_collection": {
+      "question": "the complaint is about a debt collector or about collecting a debt",
+      "options": null,
+      "seconds": 3.119642496109009,
+      "stats": {
+        "api_ms": 40923.105955,
+        "errors": 0,
+        "batches": 0,
+        "retries": 0,
+        "requests": 100,
+        "cache_hits": 1962,
+        "input_tokens": 466131,
+        "output_tokens": 35400,
+        "rows_evaluated": 2000,
+        "estimated_cost_usd": 0.019578
+      }
+    },
+    "noul_incorrect_report": {
+      "question": "the consumer says their credit report contains incorrect information",
+      "options": null,
+      "seconds": 3.491218090057373,
+      "stats": {
+        "api_ms": 42939.424276,
+        "errors": 0,
+        "batches": 0,
+        "retries": 0,
+        "requests": 100,
+        "cache_hits": 1977,
+        "input_tokens": 465831,
+        "output_tokens": 35400,
+        "rows_evaluated": 2000,
+        "estimated_cost_usd": 0.019565
+      }
+    }
+  },
+  "order_bias": {
+    "experiments": [
+      "choice_base",
+      "choice_shift3",
+      "choice_shift6"
+    ],
+    "n": 2000,
+    "flip_rate": 0.0745,
+    "flip_rate_ci": [
+      0.064,
+      0.0865
+    ],
+    "first_position_pred_rate": 0.24216666666666667,
+    "first_position_true_rate": 0.23816666666666667,
+    "first_position_excess": 0.004,
+    "first_position_excess_ci": [
+      -0.0014999999999999994,
+      0.009833333333333333
+    ],
+    "first_position_prob_lift": 0.010492011784511784,
+    "first_position_prob_lift_ci": [
+      0.009354599957912458,
+      0.0116450382996633
+    ],
+    "recall_gain_when_first": 0.02344296710986704,
+    "recall_gain_when_first_ci": [
+      0.014345696291112667,
+      0.03149930020993701
+    ],
+    "recall_by_position": [
+      {
+        "option": "credit reporting",
+        "n": 1248,
+        "recall_first": 0.8229166666666666,
+        "recall_not_first": 0.797676282051282
+      },
+      {
+        "option": "credit card",
+        "n": 142,
+        "recall_first": 0.7887323943661971,
+        "recall_not_first": 0.7852112676056338
+      },
+      {
+        "option": "money transfer or virtual currency",
+        "n": 39,
+        "recall_first": 0.6666666666666666,
+        "recall_not_first": 0.6282051282051282
+      }
+    ],
+    "debiased_accuracy": 0.766,
+    "base_accuracy": 0.7705,
+    "debiased_accuracy_delta_ci": [
+      -0.011512499999999998,
+      0.0025
+    ],
+    "debiased_ece": 0.08521311447811451,
+    "base_ece": 0.08873893939393937,
+    "cost_multiplier": 3
+  },
+  "label_set_drift": {
+    "n": 2000,
+    "flip_rate": 0.058,
+    "flip_rate_ci": [
+      0.0485,
+      0.069
+    ],
+    "share_to_other": 0.025,
+    "mean_delta_p_true": -0.012782525252525252,
+    "mean_delta_max_prob": -0.010344848484848485,
+    "accuracy_base": 0.7705,
+    "accuracy_other": 0.762,
+    "auto_accept": [
+      {
+        "tau": 0.5,
+        "accepted_base": 1907,
+        "accepted_other": 1873,
+        "jaccard": 0.9534883720930233,
+        "precision_base": 0.7855270057682223,
+        "precision_other": 0.782701548318206
+      },
+      {
+        "tau": 0.7,
+        "accepted_base": 1593,
+        "accepted_other": 1568,
+        "jaccard": 0.9157575757575758,
+        "precision_base": 0.8405524168236033,
+        "precision_other": 0.8380102040816326
+      },
+      {
+        "tau": 0.9,
+        "accepted_base": 1136,
+        "accepted_other": 1114,
+        "jaccard": 0.8939393939393939,
+        "precision_base": 0.9066901408450704,
+        "precision_other": 0.9048473967684022
+      }
+    ],
+    "tau_equivalent_to_0.7": 0.68
+  }
+}

@@ -1,0 +1,73 @@
+# Phase 0 benchmark stack.
+#   db    PostgreSQL 16 + plpython3u + pg-jev v0.2.1, built from the upstream tag
+#   mock  pg-jev's own deterministic mock API (test/mock_api.py at v0.2.1), keyless under /local/
+#   sim   simulated Jev-compatible backend with known miscalibration and first-option bias (validates the harness)
+#   bench the harness CLI (run with `docker compose run --rm bench ...`, see Makefile)
+name: docket-phase0
+
+x-bench-env: &bench-env
+  DATABASE_URL: postgresql://postgres:bench@db:5432/bench
+  TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+  HF_TOKEN: ${HF_TOKEN:-}
+
+services:
+  db:
+    build:
+      context: https://github.com/realZachi/pg-jev.git#v0.2.1
+      args:
+        PG_MAJOR: "16"
+    image: docket-phase0/pg-jev:0.2.1-pg16
+    environment:
+      POSTGRES_PASSWORD: bench
+      POSTGRES_DB: bench
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bench"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  mock:
+    build:
+      context: ./harness
+      dockerfile: Dockerfile.mock
+    image: docket-phase0/jev-mock:0.2.1
+
+  sim:
+    build: ./harness
+    image: docket-phase0/harness
+    command: ["python", "-m", "jevbench.sim", "--port", "8787"]
+    volumes:
+      - ./harness:/work/harness:ro
+    environment:
+      <<: *bench-env
+      PYTHONPATH: /work/harness
+      SIM_SIGNAL: ${SIM_SIGNAL:-2.5}
+      SIM_NOISE: ${SIM_NOISE:-1.0}
+      SIM_TEMPERATURE: ${SIM_TEMPERATURE:-0.5}
+      SIM_FIRST_BIAS: ${SIM_FIRST_BIAS:-0.6}
+      SIM_SEED: ${SIM_SEED:-7}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  bench:
+    build: ./harness
+    image: docket-phase0/harness
+    profiles: ["tools"]
+    working_dir: /work
+    volumes:
+      - ./:/work
+    environment:
+      <<: *bench-env
+      PYTHONPATH: /work/harness
+    entrypoint: ["python", "-m", "jevbench.cli"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
