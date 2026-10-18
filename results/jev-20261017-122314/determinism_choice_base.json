@@ -1,0 +1,66 @@
+{
+  "experiment": "choice_base",
+  "runs": [
+    "jev-20261017-122314",
+    "jev-20261018-110601",
+    "jev-20261018-110607"
+  ],
+  "n": 2000,
+  "rows_identical_probabilities_all_runs": 0.275,
+  "rows_identical_top1_all_runs": 0.9515,
+  "rows_any_option_moves_ge_0.05": 0.3385,
+  "max_probability_change_seen": 0.87,
+  "mean_confidence_flipped_rows": 0.4925033843590545,
+  "mean_confidence_stable_rows": 0.8720509349936569,
+  "pairs": [
+    {
+      "a": "jev-20261017-122314",
+      "b": "jev-20261018-110601",
+      "top1_agreement": 0.962,
+      "identical_probabilities": 0.343,
+      "rows_max_abs_diff_ge_0.05": 0.2395,
+      "mean_max_abs_diff": 0.03166116161616162
+    },
+    {
+      "a": "jev-20261017-122314",
+      "b": "jev-20261018-110607",
+      "top1_agreement": 0.9715,
+      "identical_probabilities": 0.337,
+      "rows_max_abs_diff_ge_0.05": 0.2275,
+      "mean_max_abs_diff": 0.031347171717171725
+    },
+    {
+      "a": "jev-20261018-110601",
+      "b": "jev-20261018-110607",
+      "top1_agreement": 0.9685,
+      "identical_probabilities": 0.336,
+      "rows_max_abs_diff_ge_0.05": 0.2195,
+      "mean_max_abs_diff": 0.030383686868686872
+    }
+  ],
+  "per_run": [
+    {
+      "run": "jev-20261017-122314",
+      "accuracy": 0.7705,
+      "ece": 0.08873893939393937
+    },
+    {
+      "run": "jev-20261018-110601",
+      "accuracy": 0.77,
+      "ece": 0.09252686868686866
+    },
+    {
+      "run": "jev-20261018-110607",
+      "accuracy": 0.769,
+      "ece": 0.09041803030303036
+    }
+  ],
+  "spread_histogram": {
+    "0.00-0.01": 550,
+    "0.01-0.02": 313,
+    "0.02-0.05": 460,
+    "0.05-0.10": 399,
+    "0.10-0.20": 211,
+    "0.20-1.01": 67
+  }
+}

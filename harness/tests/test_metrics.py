@@ -74,3 +74,14 @@ def test_macro_f1_and_prf():
     p, r, f = M.prf([1, 1, 0, 0], [1, 0, 1, 0])
     assert (p, r, f) == (0.5, 0.5, 0.5)
     assert M.macro_f1([0, 1, 2], [0, 1, 2], 3) == pytest.approx(1.0)
+
+
+def test_null_ece_floor_is_small_and_floor_removes_zeros():
+    from jevbench.followup import _floor, _null_ece
+    rng = np.random.default_rng(6)
+    conf = rng.uniform(0.5, 1.0, 1000)
+    assert _null_ece(conf, rng) < 0.05
+    P = np.array([[0.0, 0.99, 0.01], [0.5, 0.5, 0.0]])
+    Q = _floor(P)
+    assert (Q > 0).all() and np.allclose(Q.sum(axis=1), 1.0)
+    assert Q.min() == pytest.approx(0.005 / (1 + 0.005), rel=1e-6)

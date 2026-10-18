@@ -40,6 +40,8 @@ make fetch              # 3,000-row sample → data/raw/cfpb_sample.jsonl (+ man
 make load N=2000        # → bench.complaints / bench.items
 make bench              # BACKEND=sim by default; writes results/<run_id>/report.md + metrics.json
 make cachecheck         # demonstrates the cross-backend cache reuse in one session
+make curve RUN=<run_id> # label learning curve for calibrators (no API calls)
+docker compose run --rm bench determinism --runs <run1>,<run2>,<run3>   # repeat-run comparison
 ```
 
 ### Real Jev

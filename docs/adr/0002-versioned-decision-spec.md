@@ -18,7 +18,7 @@ A `decision_version` stores a canonical JSON spec and its `spec_hash`. The hash 
 - order-debiasing setting,
 - calibrator id and threshold policy id.
 
-Changing any of these creates a new version in `shadow` status. A shadow version is judged on the gold set and a random sample, and `docket.diff` reports flip rate, calibration shift and gold accuracy. `promote` makes it `active` only if its policy (e.g. a precision guarantee) is feasible. Judgments are never mutated; they belong to exactly one version.
+Changing any of these creates a new version in `shadow` status. Phase 0 also showed that the backend is not deterministic: identical requests to jev-1.13.0 changed the top answer for 4.8 % of rows across three runs. Re-judging therefore can't reproduce a past decision, and the stored judgment is the record. A shadow version is judged on the gold set and a random sample, and `docket.diff` reports flip rate, calibration shift and gold accuracy. `promote` makes it `active` only if its policy (e.g. a precision guarantee) is feasible. Judgments are never mutated; they belong to exactly one version.
 
 ## Consequences
 

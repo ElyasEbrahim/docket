@@ -21,7 +21,7 @@ COMPOSE = docker compose
 BENCH   = $(COMPOSE) run --rm bench
 PSQL    = $(COMPOSE) exec -T db psql -U postgres -d bench -v ON_ERROR_STOP=1
 
-.PHONY: up down reset psql upstream-test smoke test fetch load bench analyze cachecheck e2e
+.PHONY: up down reset psql upstream-test smoke test fetch load bench analyze curve cachecheck e2e
 
 up:
 	$(COMPOSE) up -d --build --wait db mock sim
@@ -57,6 +57,9 @@ bench:
 
 analyze:
 	$(BENCH) analyze --run $(or $(RUN),latest)
+
+curve:
+	$(BENCH) curve --run $(or $(RUN),latest)
 
 cachecheck:
 	$(BENCH) cachecheck

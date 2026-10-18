@@ -5,12 +5,14 @@
   run         run the experiments through pg-jev against a backend (mock | sim | jev | --api-url)
   analyze     write results/<run_id>/report.md and metrics.json
   cachecheck  show whether pg-jev reuses answers across backends within one session
+  determinism compare one experiment across repeated runs (no API calls)
+  curve       label learning curve for calibrators on a stored run (no API calls)
 """
 import argparse
 import json
 import sys
 
-from . import fetch, report, runner
+from . import fetch, followup, report, runner
 from .tasks import default_experiments
 
 
@@ -44,6 +46,15 @@ def main(argv=None):
     a.add_argument("--run", default="latest")
     a.add_argument("--out", default="results")
 
+    d = sub.add_parser("determinism")
+    d.add_argument("--runs", required=True, help="comma-separated run ids; the first one names the output folder")
+    d.add_argument("--experiment", default="choice_base")
+
+    c = sub.add_parser("curve")
+    c.add_argument("--run", default="latest")
+    c.add_argument("--sizes", default="100,200,500,1000")
+    c.add_argument("--repeats", type=int, default=50)
+
     sub.add_parser("cachecheck")
     sub.add_parser("experiments")
 
@@ -76,6 +87,17 @@ def main(argv=None):
     elif args.cmd == "analyze":
         out_dir, _ = report.analyse(args.run, args.out)
         print(f"report: {out_dir}/report.md")
+    elif args.cmd == "determinism":
+        runs = args.runs.split(",")
+        d = followup.determinism(runs, args.experiment)
+        print("report:", followup.write(d, followup.render_determinism(d),
+                                        f"results/{runs[0]}/determinism_{args.experiment}"))
+    elif args.cmd == "curve":
+        with report.connect() as conn:
+            run_id = args.run if args.run != "latest" else report.latest_run_id(conn)
+        sizes = tuple(int(x) for x in args.sizes.split(","))
+        c = followup.learning_curve(run_id, sizes, args.repeats)
+        print("report:", followup.write(c, followup.render_curve(c), f"results/{run_id}/learning_curve"))
     elif args.cmd == "cachecheck":
         print(json.dumps(runner.cache_check(), indent=2))
     elif args.cmd == "experiments":

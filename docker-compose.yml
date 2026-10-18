@@ -40,6 +40,7 @@ services:
     build: ./harness
     image: docket-phase0/harness
     command: ["python", "-m", "jevbench.sim", "--port", "8787"]
+    working_dir: /work/harness          # `python -m` puts the cwd first on sys.path: run the mounted code, not the image's copy
     volumes:
       - ./harness:/work/harness:ro
     environment:
@@ -50,6 +51,7 @@ services:
       SIM_TEMPERATURE: ${SIM_TEMPERATURE:-0.5}
       SIM_FIRST_BIAS: ${SIM_FIRST_BIAS:-0.6}
       SIM_SEED: ${SIM_SEED:-7}
+      SIM_LOG: ${SIM_LOG:-}
     depends_on:
       db:
         condition: service_healthy

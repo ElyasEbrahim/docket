@@ -151,6 +151,10 @@ def handle_request(knobs, truths, req):
         texts.append((qid, row.get("narrative", "") if isinstance(row, dict) else str(row)))
     hashes = {qid: hashlib.md5(t.encode("utf-8")).hexdigest() for qid, t in texts}
     snap = truths.snapshot(hashes.values()) if isinstance(truths, TruthStore) else truths
+    log = os.environ.get("SIM_LOG")
+    if log:   # one line per request: the narratives' hashes in batch order (checks pg-jev's batching)
+        with open(log, "a") as f:
+            f.write(json.dumps([hashes[qid] for qid in sorted(hashes, key=lambda q: int(q[1:]))]) + "\n")
     answers = {}
     for qid, q in questions.items():
         h = hashes[qid]
