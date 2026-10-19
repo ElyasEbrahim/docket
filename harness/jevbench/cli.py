@@ -9,6 +9,7 @@
   curve       label learning curve for calibrators on a stored run (no API calls)
   reorder     re-insert bench.items in a seeded order (new batch neighbours), or --restore the original
   batchcontext compare a shuffled-batch run with same-batch runs (no API calls)
+  batchsize   compare a single-row run (--batch-size 1) with batched runs (no API calls)
 """
 import argparse
 import json
@@ -43,6 +44,7 @@ def main(argv=None):
     r.add_argument("--yes", action="store_true", help="confirm a paid run")
     r.add_argument("--notes", default=None)
     r.add_argument("--analyze", action="store_true", help="write the report when the run finishes")
+    r.add_argument("--batch-size", type=int, default=None, help="rows per API request (pg-jev default: 20)")
 
     a = sub.add_parser("analyze")
     a.add_argument("--run", default="latest")
@@ -66,6 +68,12 @@ def main(argv=None):
     bc.add_argument("--shuffled", required=True, help="the run made after `reorder`")
     bc.add_argument("--experiment", default="choice_base")
     bc.add_argument("--reorder-info", default=None, help="JSON printed by `reorder`, embedded in the report")
+
+    bs = sub.add_parser("batchsize")
+    bs.add_argument("--batched", required=True, help="comma-separated runs made with 20 rows per request")
+    bs.add_argument("--single", required=True, help="the run made with --batch-size 1")
+    bs.add_argument("--shuffled", default=None, help="optional shuffled-batch run from the batch-context check")
+    bs.add_argument("--experiment", default="choice_base")
 
     sub.add_parser("cachecheck")
     sub.add_parser("experiments")
@@ -91,7 +99,8 @@ def main(argv=None):
             missing = wanted - {e.name for e in exps}
             if missing:
                 sys.exit(f"unknown experiments: {sorted(missing)}")
-        run_id = runner.run(args.backend, args.model, args.api_url, exps, args.max_usd, args.notes, args.yes)
+        run_id = runner.run(args.backend, args.model, args.api_url, exps, args.max_usd, args.notes, args.yes,
+                            args.batch_size)
         print(f"run_id: {run_id}")
         if args.analyze:
             out_dir, _ = report.analyse(run_id)
@@ -118,6 +127,11 @@ def main(argv=None):
                                    json.loads(args.reorder_info) if args.reorder_info else None)
         print("report:", followup.write(b, followup.render_batch_context(b),
                                         f"results/{same[0]}/batch_context_{args.experiment}"))
+    elif args.cmd == "batchsize":
+        batched = args.batched.split(",")
+        b = followup.batch_size_compare(batched, args.single, args.shuffled, args.experiment)
+        print("report:", followup.write(b, followup.render_batch_size(b),
+                                        f"results/{batched[0]}/batch_size_{args.experiment}"))
     elif args.cmd == "cachecheck":
         print(json.dumps(runner.cache_check(), indent=2))
     elif args.cmd == "experiments":

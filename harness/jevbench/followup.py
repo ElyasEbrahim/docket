@@ -135,6 +135,106 @@ def render_batch_context(b):
     return "\n".join(L) + "\n"
 
 
+# ---------------------------------------------------------------- batch size
+def _calibrated_ece(P, y):
+    Pf = _floor(P)
+    Q, T = M.crossfit_temperature(Pf, y)
+    conf, correct = P.max(axis=1), (P.argmax(axis=1) == y).astype(float)
+    return {"ece": M.ece(conf, correct, 15), "temperature": T,
+            "ece_after_temperature": M.ece(Q.max(axis=1), (Q.argmax(axis=1) == y).astype(float), 15),
+            "ece_after_isotonic": M.ece(M.crossfit_binary(conf, correct, "isotonic"), correct, 15),
+            "exact_zeros": int((P == 0).sum()), "rows_label_prob_zero": int((P[np.arange(len(y)), y] == 0).sum())}
+
+
+def batch_size_compare(batched_runs, single_run, shuffled_run=None, experiment="choice_base"):
+    """Single-row judging vs pg-jev's 20-row batches on the same rows, options and model."""
+    names = batched_runs + [single_run] + ([shuffled_run] if shuffled_run else [])
+    with connect() as conn:
+        runs = {r: load_run(conn, r) for r in names}
+    truth = runs[single_run][3]
+    opts = list(runs[single_run][1][experiment]["options"])
+    common = sorted(set.intersection(*(set(runs[r][2][experiment]) for r in names)))
+    P = {r: np.array([choice_probs(runs[r][2][experiment][h], opts)[0] for h in common]) for r in names}
+    y = np.array([opts.index(truth[h].product) for h in common])
+    Pb = np.stack([P[r] for r in batched_runs])
+    out = {"experiment": experiment, "batched_runs": batched_runs, "single_run": single_run, "rows": len(common)}
+    out["disagreement"] = batch_context_stats(Pb, P[single_run], y)
+    correct_b = (Pb.argmax(axis=2) == y).astype(float)                     # (runs, rows)
+    correct_s = (P[single_run].argmax(axis=1) == y).astype(float)
+    gain = correct_s - correct_b.mean(axis=0)
+    out["accuracy_single"] = float(correct_s.mean())
+    out["accuracy_batched"] = [float(c.mean()) for c in correct_b]
+    out["accuracy_gain"] = float(gain.mean())
+    out["accuracy_gain_ci"] = M.bootstrap_ci(np.mean, [gain])
+    out["macro_f1_single"] = M.macro_f1(P[single_run].argmax(axis=1), y, len(opts))
+    out["macro_f1_batched"] = [M.macro_f1(p.argmax(axis=1), y, len(opts)) for p in Pb]
+    out["calibration_single"] = _calibrated_ece(P[single_run], y)
+    out["calibration_batched"] = _calibrated_ece(P[batched_runs[0]], y)
+    out["per_class_recall"] = [
+        {"option": o, "n": int((y == c).sum()),
+         "single": float(correct_s[y == c].mean()) if (y == c).any() else None,
+         "batched": float(correct_b[:, y == c].mean()) if (y == c).any() else None}
+        for c, o in enumerate(opts)]
+    meta = {r: runs[r][1][experiment] for r in (batched_runs[0], single_run)}
+    out["cost"] = {r: {"seconds": float(meta[r]["seconds"]), "requests": int(meta[r]["stats"].get("requests", 0)),
+                       "input_tokens": int(meta[r]["stats"].get("input_tokens", 0)),
+                       "usd": float(meta[r]["stats"].get("estimated_cost_usd", 0))} for r in meta}
+    if shuffled_run:
+        top_b = Pb.argmax(axis=2)
+        stable = np.all(top_b == top_b[0], axis=0)
+        cons, shuf, single = top_b[0], P[shuffled_run].argmax(axis=1), P[single_run].argmax(axis=1)
+        flipped = stable & (shuf != cons)
+        out["context_sensitive_rows"] = {
+            "n": int(flipped.sum()),
+            "single_agrees_with_original_batches": float((single[flipped] == cons[flipped]).mean()),
+            "single_agrees_with_shuffled_batches": float((single[flipped] == shuf[flipped]).mean()),
+            "single_correct": float((single[flipped] == y[flipped]).mean()),
+            "original_batches_correct": float((cons[flipped] == y[flipped]).mean()),
+            "shuffled_batches_correct": float((shuf[flipped] == y[flipped]).mean()),
+        }
+    return out
+
+
+def render_batch_size(b):
+    pct = lambda x: f"{100 * x:.1f} %"
+    d, cs, cb = b["disagreement"], b["calibration_single"], b["calibration_batched"]
+    lo, hi = b["accuracy_gain_ci"]
+    rs, rb = b["cost"][b["single_run"]], b["cost"][b["batched_runs"][0]]
+    L = [f"# Batch size 1 vs 20: `{b['experiment']}`", "",
+         f"Batched (20 rows per request): {', '.join(f'`{r}`' for r in b['batched_runs'])}. "
+         f"Single-row: `{b['single_run']}`. {b['rows']} rows, same options and model.", "",
+         "| measure | 20 rows per request | 1 row per request |", "| --- | ---: | ---: |",
+         f"| accuracy | {', '.join(pct(x) for x in b['accuracy_batched'])} | {pct(b['accuracy_single'])} |",
+         f"| macro-F1 | {', '.join(f'{x:.3f}' for x in b['macro_f1_batched'])} | {b['macro_f1_single']:.3f} |",
+         f"| top-label ECE (raw) | {cb['ece']:.3f} | {cs['ece']:.3f} |",
+         f"| ECE after floored temperature (T) | {cb['ece_after_temperature']:.3f} ({cb['temperature']:.2f}) | "
+         f"{cs['ece_after_temperature']:.3f} ({cs['temperature']:.2f}) |",
+         f"| ECE after isotonic | {cb['ece_after_isotonic']:.3f} | {cs['ece_after_isotonic']:.3f} |",
+         f"| exact zeros / rows where the label gets 0 | {cb['exact_zeros']:,} / {cb['rows_label_prob_zero']} | "
+         f"{cs['exact_zeros']:,} / {cs['rows_label_prob_zero']} |",
+         f"| requests / input tokens | {rb['requests']} / {rb['input_tokens']:,} | {rs['requests']} / {rs['input_tokens']:,} |",
+         f"| tokens per row / cost per 1,000 rows | {rb['input_tokens'] / b['rows']:.0f} / ${1000 * rb['usd'] / b['rows']:.4f} | "
+         f"{rs['input_tokens'] / b['rows']:.0f} / ${1000 * rs['usd'] / b['rows']:.4f} |",
+         f"| wall-clock for {b['rows']} rows | {rb['seconds']:.1f} s | {rs['seconds']:.1f} s |", "",
+         f"**Accuracy change from judging rows singly:** {100 * b['accuracy_gain']:+.2f} pp [{100 * lo:+.2f}, {100 * hi:+.2f}] "
+         "(paired per row against the mean of the batched runs; 95 % bootstrap CI).", "",
+         "| disagreement | value |", "| --- | ---: |",
+         f"| between batched runs (noise) | {', '.join(pct(x) for x in d['pairwise_flips_same_batches'])} |",
+         f"| single-row vs each batched run | {', '.join(pct(x) for x in d['pairwise_flips_shuffled_vs_same'])} |",
+         f"| excess over noise | {100 * d['excess_disagreement']:+.2f} pp [{100 * d['excess_disagreement_ci'][0]:+.2f}, "
+         f"{100 * d['excess_disagreement_ci'][1]:+.2f}] |", ""]
+    c = b.get("context_sensitive_rows")
+    if c:
+        L += [f"On the {c['n']} rows whose answer flipped when re-batched (#3), single-row judging agrees with the "
+              f"original batches {pct(c['single_agrees_with_original_batches'])} and with the shuffled batches "
+              f"{pct(c['single_agrees_with_shuffled_batches'])} of the time. Correct: original batches "
+              f"{pct(c['original_batches_correct'])}, shuffled {pct(c['shuffled_batches_correct'])}, single-row "
+              f"{pct(c['single_correct'])}.", ""]
+    L += ["| class | rows | recall, 20 per request | recall, 1 per request |", "| --- | ---: | ---: | ---: |"]
+    L += [f"| {r['option']} | {r['n']} | {pct(r['batched'])} | {pct(r['single'])} |" for r in b["per_class_recall"]]
+    return "\n".join(L) + "\n"
+
+
 # ---------------------------------------------------------------- learning curve
 def _choice_arrays(exps, answers, truth, name):
     opts = list(exps[name]["options"])

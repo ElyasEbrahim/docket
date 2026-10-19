@@ -5,6 +5,8 @@ Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repo
 ## 2026-10-19
 
 ### Added
+- **Batch size 1 (#10).** Judging one row per request: +2.4 pp accuracy [0.9, 3.8], +0.05 macro-F1, at 1.8× tokens. ADR 0002 now defaults to one row per request. Findings §10.
+- `jevbench run --batch-size` and `jevbench batchsize`.
 - **Batch-context check (#3).** Re-batching the same 2,000 rows changed the top answer for ~16.5 % of rows, against ~3 % run-to-run noise (+13.6 pp [13.2, 14.1]), with a same-day control. Findings §9.
 - `jevbench reorder [--seed | --restore]` and `jevbench batchcontext`, with a unit test.
 - Apache-2.0 license.

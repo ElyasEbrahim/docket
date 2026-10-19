@@ -19,11 +19,11 @@
 - a score of `0.7` doesn't mean 70 %, and `count(*)` over AI labels has no error bar;
 - they don't run on managed hosts like Supabase, Neon or RDS.
 
-Model calls now cost about **$6–7 per million rows**, so the bottleneck is no longer cost. It's whether people can trust and audit the answers.
+Model calls now cost roughly **$6–25 per million rows** (depending on text length and rows per request), so the bottleneck is no longer cost. It's whether people can trust and audit the answers.
 
 ## What Phase 0 measured
 
-2,000 real consumer-complaint narratives, judged by jev-1.13.0 through pg-jev, for about $0.25 in API calls in total.
+2,000 real consumer-complaint narratives, judged by jev-1.13.0 through pg-jev, for about $0.30 in API calls in total.
 
 | Finding | Result |
 | --- | --- |
@@ -31,6 +31,7 @@ Model calls now cost about **$6–7 per million rows**, so the bottleneck is no 
 | ~100 labels fix most of it | Calibration on 100 labels removes **45–85 %** of the error |
 | Asking again changes answers | **4.8 %** of rows change top answer across 3 identical runs |
 | Neighbours change answers | Re-batching the same rows changes **~16.5 %** of answers (≈ 5× noise) |
+| One row per request is better | Judging rows singly: **+2.4 pp** accuracy, +0.05 macro-F1, at 1.8× tokens |
 | Adding an option moves answers | **2.5 %** of answers move to a new catch-all option |
 | Scores are coarse | Probabilities come on a 0.01 grid with exact zeros |
 
@@ -38,7 +39,7 @@ Details, methods and limits: [docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FIND
 
 ## What Docket will be
 
-1. **Stored decisions.** Answers live in an append-only ledger and a view you can join and index. New and changed rows are judged automatically.
+1. **Stored decisions.** Answers live in an append-only ledger and a view you can join and index. New and changed rows are judged automatically, one row per request.
 2. **Versions.** Changing the question, labels, model or batching creates a new version, which is compared with the old one before it replaces it.
 3. **Calibration on your labels.** About 100–200 human labels per decision turn raw scores into probabilities that mean what they say.
 4. **Honest numbers.** Thresholds with stated guarantees ("precision ≥ 95 %"), and counts with confidence intervals (prediction-powered inference).

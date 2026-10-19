@@ -45,6 +45,8 @@ docker compose run --rm bench determinism --runs <run1>,<run2>,<run3>   # repeat
 docker compose run --rm bench reorder --seed 1      # re-insert bench.items so pg-jev forms new batches
 docker compose run --rm bench reorder --restore     # back to the original order
 docker compose run --rm bench batchcontext --same <runs> --shuffled <run>   # batch-context comparison
+docker compose run --rm bench run --backend jev --experiments choice_base --batch-size 1 --yes   # one row per request
+docker compose run --rm bench batchsize --batched <runs> --single <run> [--shuffled <run>]   # batch size 1 vs 20
 ```
 
 ### Real Jev

@@ -31,4 +31,6 @@ The technical half of the go/no-go is met: miscalibration 3.3× (choice) to 15×
 
 - **Batch context** (issue #3, ≈ $0.053 including a same-day control): re-batching the same rows changed the top answer for ~16.5 % of rows, against ~3 % run-to-run noise (+13.6 pp [13.2, 14.1]). Flipped answers tend to match a new neighbour's answer. Docket must judge rows singly or record batch composition; batch size 1 is the next measurement.
 
-See FINDINGS §4, §5, §7, §8 and §9.
+- **Batch size 1** (issue #10, ≈ $0.047): judging one row per request raised accuracy 2.4 pp (+0.05 macro-F1), mostly in smaller classes, at 1.8× the tokens (~$24 per million rows). Floored temperature scaling calibrates it as well as batched output. ADR 0002 now defaults Docket to one row per request.
+
+See FINDINGS §4, §5, §7, §8, §9 and §10.

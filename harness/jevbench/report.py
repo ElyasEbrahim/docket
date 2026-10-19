@@ -24,12 +24,14 @@ def latest_run_id(conn):
 
 def load_run(conn, run_id):
     with conn.cursor() as cur:
-        cur.execute("SELECT run_id, backend, api_url, model, n_items, started_at, finished_at, notes "
+        cur.execute("SELECT run_id, backend, api_url, model, n_items, started_at, finished_at, notes, "
+                    "coalesce((settings->>'batch_size')::int, 20) "
                     "FROM bench.runs WHERE run_id = %s", (run_id,))
         r = cur.fetchone()
         if not r:
             raise SystemExit(f"unknown run {run_id}")
-        run = dict(zip(("run_id", "backend", "api_url", "model", "n_items", "started_at", "finished_at", "notes"), r))
+        run = dict(zip(("run_id", "backend", "api_url", "model", "n_items", "started_at", "finished_at", "notes",
+                        "batch_size"), r))
         cur.execute("SELECT experiment, kind, question, options, family, seconds, stats "
                     "FROM bench.experiment_runs WHERE run_id = %s ORDER BY experiment", (run_id,))
         exps = {e[0]: dict(zip(("name", "kind", "question", "options", "family", "seconds", "stats"), e))
@@ -317,7 +319,8 @@ def render(r):
         L += ["> **Synthetic backend.** These numbers describe the harness, not a real model. The `sim` backend derives "
               "its answers from the labels with planted flaws (see `harness/jevbench/sim.py`); `mock` is pg-jev's "
               "deterministic test double.", ""]
-    L += [f"- Backend: `{run['backend']}` · model `{run['model']}` · endpoint `{run['api_url']}`",
+    L += [f"- Backend: `{run['backend']}` · model `{run['model']}` · endpoint `{run['api_url']}` · "
+          f"{run['batch_size']} row(s) per request",
           f"- Rows: {run['n_items']} CFPB complaint narratives · started {run['started_at']} · finished {run['finished_at']}",
           "- Ground truth: consumer-selected Product / Issue (noisy; agreement is a lower bound on fidelity)", ""]
 

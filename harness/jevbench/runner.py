@@ -84,8 +84,12 @@ def reorder(seed=None, restore=False, batch_size=20):
             "mean_shared_neighbours": sum(shared) / max(len(shared), 1)}
 
 
-def estimate_cost(conn, experiments):
-    """Upper-bound input tokens: ~chars/3.5 per row plus per-question overhead (options, instructions)."""
+REQUEST_OVERHEAD_TOKENS = 270   # pg-jev's measured per-request overhead
+
+
+def estimate_cost(conn, experiments, batch_size=None):
+    """Upper-bound input tokens: ~chars/3.5 per row plus per-question overhead (options, instructions), plus the
+    extra request overhead when batches are smaller than pg-jev's default of 20."""
     with conn.cursor() as cur:
         cur.execute("SELECT count(*), coalesce(sum(length(narrative)), 0) FROM bench.items")
         n, chars = cur.fetchone()
@@ -93,10 +97,14 @@ def estimate_cost(conn, experiments):
     for e in experiments:
         per_row_overhead = 60 + sum(len(o) for o in e.options) // 3 + len(e.question) // 3
         tokens += chars / 3.5 + n * per_row_overhead
+        if batch_size and batch_size < 20:
+            tokens += n * REQUEST_OVERHEAD_TOKENS * (1 / batch_size - 1 / 20)
     return n, int(tokens), tokens * USD_PER_INPUT_TOKEN
 
 
-def _configure(cur, api_url, model, n_items, api_key):
+def _configure(cur, api_url, model, n_items, api_key, batch_size=None):
+    if batch_size:
+        cur.execute("SELECT set_config('jev.batch_size', %s, false)", (str(batch_size),))
     cur.execute("SELECT set_config('jev.api_url', %s, false), set_config('jev.model', %s, false), "
                 "set_config('jev.notices', 'off', false), "
                 "set_config('jev.max_rows_per_statement', %s, false)",
@@ -105,7 +113,7 @@ def _configure(cur, api_url, model, n_items, api_key):
         cur.execute("SELECT set_config('jev.api_key', %s, false)", (api_key,))
 
 
-def run(backend, model=None, api_url=None, experiments=None, max_usd=1.0, notes=None, yes=False):
+def run(backend, model=None, api_url=None, experiments=None, max_usd=1.0, notes=None, yes=False, batch_size=None):
     if backend not in BACKENDS and not api_url:
         raise SystemExit(f"unknown backend {backend!r}; use one of {sorted(BACKENDS)} or pass --api-url")
     default_url, default_model = BACKENDS.get(backend, (api_url, "jev-latest"))
@@ -116,7 +124,7 @@ def run(backend, model=None, api_url=None, experiments=None, max_usd=1.0, notes=
 
     with connect() as conn:
         ensure_schema(conn)
-        n_items, tokens, usd = estimate_cost(conn, experiments)
+        n_items, tokens, usd = estimate_cost(conn, experiments, batch_size)
         if n_items == 0:
             raise SystemExit("bench.items is empty: run `fetch` and `load` first")
         print(f"{len(experiments)} experiments × {n_items} rows; estimated ≤ {tokens:,} input tokens"
@@ -134,14 +142,15 @@ def run(backend, model=None, api_url=None, experiments=None, max_usd=1.0, notes=
             cur.execute("INSERT INTO bench.runs (run_id, backend, api_url, model, n_items, settings, notes) "
                         "VALUES (%s, %s, %s, %s, %s, %s, %s)",
                         (run_id, backend, api_url, model, n_items,
-                         Jsonb({"experiments": [e.name for e in experiments]}), notes))
+                         Jsonb({"experiments": [e.name for e in experiments], "batch_size": batch_size or 20}),
+                         notes))
         conn.commit()
 
     for e in experiments:
         # A fresh session per experiment: pg-jev's answer cache is per session and its key does not include
         # jev.model or jev.api_url, so reusing a session across backends could return another backend's answers.
         with connect() as conn, conn.cursor() as cur:
-            _configure(cur, api_url, model, n_items, api_key)
+            _configure(cur, api_url, model, n_items, api_key, batch_size)
             cur.execute("SELECT jev_cache_clear()")
             cur.execute("SELECT jev_stats()")
             before = cur.fetchone()[0]

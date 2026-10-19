@@ -1,0 +1,164 @@
+{
+  "experiment": "choice_base",
+  "batched_runs": [
+    "jev-20261017-122314",
+    "jev-20261018-110601",
+    "jev-20261018-110607",
+    "jev-20261019-072124"
+  ],
+  "single_run": "jev-20261019-073856",
+  "rows": 2000,
+  "disagreement": {
+    "rows": 2000,
+    "disagreement_noise": 0.015601818055347693,
+    "disagreement_shuffled": 0.12945279554908293,
+    "excess_disagreement": 0.1138494623655914,
+    "excess_disagreement_ci": [
+      0.10959139784946237,
+      0.11789354838709677
+    ],
+    "pairwise_flips_same_batches": [
+      0.038,
+      0.0285,
+      0.033,
+      0.0315,
+      0.0265,
+      0.03
+    ],
+    "pairwise_flips_shuffled_vs_same": [
+      0.1405,
+      0.1415,
+      0.1445,
+      0.1445
+    ],
+    "mean_max_prob_change_same_batches": 0.030574419191919194,
+    "mean_max_prob_change_shuffled": 0.16183227272727274,
+    "accuracy_same": [
+      0.7705,
+      0.77,
+      0.769,
+      0.7675
+    ],
+    "accuracy_shuffled": 0.793,
+    "ece_same": [
+      0.08873893939393937,
+      0.09252686868686866,
+      0.09041803030303036,
+      0.08881787878787877
+    ],
+    "ece_shuffled": 0.1255303535353535
+  },
+  "accuracy_single": 0.793,
+  "accuracy_batched": [
+    0.7705,
+    0.77,
+    0.769,
+    0.7675
+  ],
+  "accuracy_gain": 0.02375,
+  "accuracy_gain_ci": [
+    0.009,
+    0.03813124999999999
+  ],
+  "macro_f1_single": 0.7070522286799604,
+  "macro_f1_batched": [
+    0.6575129924692104,
+    0.663680704680815,
+    0.6612431587508143,
+    0.6565310307082355
+  ],
+  "calibration_single": {
+    "ece": 0.1255303535353535,
+    "temperature": 1.2563214398011768,
+    "ece_after_temperature": 0.031594790648884645,
+    "ece_after_isotonic": 0.055503299283204716,
+    "exact_zeros": 14228,
+    "rows_label_prob_zero": 115
+  },
+  "calibration_batched": {
+    "ece": 0.08873893939393937,
+    "temperature": 1.1251489267539552,
+    "ece_after_temperature": 0.02946896415118322,
+    "ece_after_isotonic": 0.027199920327808644,
+    "exact_zeros": 12104,
+    "rows_label_prob_zero": 54
+  },
+  "per_class_recall": [
+    {
+      "option": "credit reporting",
+      "n": 1248,
+      "single": 0.8100961538461539,
+      "batched": 0.8199118589743589
+    },
+    {
+      "option": "debt collection",
+      "n": 239,
+      "single": 0.606694560669456,
+      "batched": 0.5303347280334728
+    },
+    {
+      "option": "mortgage",
+      "n": 110,
+      "single": 0.9272727272727272,
+      "batched": 0.8431818181818181
+    },
+    {
+      "option": "credit card",
+      "n": 142,
+      "single": 0.8450704225352113,
+      "batched": 0.7676056338028169
+    },
+    {
+      "option": "checking or savings account",
+      "n": 124,
+      "single": 0.8306451612903226,
+      "batched": 0.7399193548387096
+    },
+    {
+      "option": "student loan",
+      "n": 36,
+      "single": 0.8611111111111112,
+      "batched": 0.7222222222222222
+    },
+    {
+      "option": "money transfer or virtual currency",
+      "n": 39,
+      "single": 0.6923076923076923,
+      "batched": 0.6410256410256411
+    },
+    {
+      "option": "vehicle loan or lease",
+      "n": 38,
+      "single": 0.7894736842105263,
+      "batched": 0.7105263157894737
+    },
+    {
+      "option": "payday, title, or personal loan",
+      "n": 24,
+      "single": 0.7083333333333334,
+      "batched": 0.7083333333333334
+    }
+  ],
+  "cost": {
+    "jev-20261017-122314": {
+      "seconds": 3.5252254009246826,
+      "requests": 100,
+      "input_tokens": 628231,
+      "usd": 0.026386
+    },
+    "jev-20261019-073856": {
+      "seconds": 60.883949756622314,
+      "requests": 2000,
+      "input_tokens": 1128831,
+      "usd": 0.047411
+    }
+  },
+  "context_sensitive_rows": {
+    "n": 267,
+    "single_agrees_with_original_batches": 0.50187265917603,
+    "single_agrees_with_shuffled_batches": 0.4307116104868914,
+    "single_correct": 0.6254681647940075,
+    "original_batches_correct": 0.49812734082397003,
+    "shuffled_batches_correct": 0.3895131086142322
+  }
+}
