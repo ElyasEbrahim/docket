@@ -37,7 +37,7 @@
 | 新增选项会带走答案 | 新增一个"其他"类选项后，**2.5%** 的答案转到了它 |
 | 分数很粗糙 | 概率以 0.01 为刻度，并且有大量恰好为 0 的值 |
 
-详细结果、方法和局限：[docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md)（英文）。
+面向一般读者的文章：[*Same row, different answer*](docs/notes/2026-10-same-row-different-answer.md)（英文）。详细结果、方法和局限：[docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md)（英文）。
 
 ## Docket 将会是什么
 
@@ -78,6 +78,7 @@ make bench BACKEND=jev ARGS=--yes   # 会先显示预估费用；超过 1 美元
 | [CHANGELOG.md](CHANGELOG.md) | 按日期记录的变更 |
 | [docs/adr/](docs/adr/) | 架构决策记录 |
 | [docs/phase0/](docs/phase0/) | 第 0 阶段的结论、状态、待提交给上游的问题草稿 |
+| [docs/notes/](docs/notes/) | 面向公众的文章 |
 | [harness/](harness/) | 基准测试工具：`jevbench` 命令行、模拟后端、测试 |
 | [results/](results/) | 结论中引用的各次运行报告 |
 | `docker-compose.yml`、`Makefile` | 测试环境及其命令 |

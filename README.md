@@ -35,7 +35,7 @@ Model calls now cost roughly **$6–25 per million rows** (depending on text len
 | Adding an option moves answers | **2.5 %** of answers move to a new catch-all option |
 | Scores are coarse | Probabilities come on a 0.01 grid with exact zeros |
 
-Details, methods and limits: [docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md).
+Write-up for a general audience: [*Same row, different answer*](docs/notes/2026-10-same-row-different-answer.md). Details, methods and limits: [docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md).
 
 ## What Docket will be
 
@@ -76,6 +76,7 @@ More commands (determinism, learning curve, batch context): [harness/README.md](
 | [CHANGELOG.md](CHANGELOG.md) | What changed, by date |
 | [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/phase0/](docs/phase0/) | Phase 0 findings, status, draft upstream issue |
+| [docs/notes/](docs/notes/) | Public write-ups |
 | [harness/](harness/) | Benchmark harness: `jevbench` CLI, simulated backend, tests |
 | [results/](results/) | Benchmark reports from the runs cited in the findings |
 | `docker-compose.yml`, `Makefile` | The benchmark stack and its commands |
