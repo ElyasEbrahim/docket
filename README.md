@@ -46,3 +46,7 @@ make bench         # all experiments on the simulated backend → results/<run_i
 ```
 
 With a TypeSafe key: `TYPESAFE_API_KEY=... make bench BACKEND=jev ARGS=--yes`. It prints the estimated spend first and refuses anything over $1. Details are in [harness/README.md](harness/README.md).
+
+## License
+
+[Apache-2.0](LICENSE). Copyright 2026 ElyasEbrahim.
