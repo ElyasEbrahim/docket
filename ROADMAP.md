@@ -15,7 +15,9 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 - [x] Real run on jev-1.13.0 (`jev-20261017-122314`, ≈ $0.146): see [docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md)
 - [ ] Optional second backend: stuntd / laya-server via `--api-url`; OpenAI Decisions needs an adapter (different contract)
 - [x] Run-to-run determinism check and label learning curve (FINDINGS §7–§8; corrected the order and drift claims)
-- [ ] Turn the draft findings into the public technical note; consider a batch-context check first (≈ $0.03)
+- [x] Batch-context check (#3): ~16.5 % of answers change with batch neighbours (FINDINGS §9)
+- [ ] Measure batch size 1 (accuracy, calibration, stability) to decide how Docket batches
+- [ ] Turn the draft findings into the public technical note (#2)
 - [ ] File the cache-key issue upstream (after review); PR adding PostgreSQL 18 to pg-jev's CI matrix
 - [ ] Open a pg-jev GitHub Discussion about persisting and calibrating judgments; talk to 5–10 potential users
 - [ ] Check the name "Docket" on PyPI, GitHub and npm; pick a final name

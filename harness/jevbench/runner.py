@@ -28,6 +28,7 @@ def load_sample(path, n=None):
         ensure_schema(conn)
         with conn.cursor() as cur:
             cur.execute("TRUNCATE bench.complaints, bench.items")
+            cur.execute("DROP TABLE IF EXISTS bench.items_original")   # order snapshot of the previous load
             with cur.copy("COPY bench.complaints (complaint_id, date_received, product_raw, product, issue, "
                           "sub_issue, narrative, text_hash) FROM STDIN") as cp:
                 for r in rows:
@@ -43,6 +44,44 @@ def load_sample(path, n=None):
             dist = cur.fetchall()
         conn.commit()
     return len(rows), dist
+
+
+def _batches(narrative_hashes, size=20):
+    """pg-jev streams a table in physical order and sends consecutive chunks of `size` rows."""
+    return {h: i // size for i, h in enumerate(narrative_hashes)}
+
+
+def reorder(seed=None, restore=False, batch_size=20):
+    """Re-insert bench.items in a new physical order, so pg-jev forms different batches; --restore undoes it.
+
+    The first call snapshots the current order into bench.items_original (pos, narrative). A seeded order is
+    reproducible: rows are sorted by md5(narrative || ':' || seed).
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("CREATE TABLE IF NOT EXISTS bench.items_original AS "
+                    "SELECT row_number() OVER (ORDER BY ctid) AS pos, narrative FROM bench.items")
+        cur.execute("SELECT md5(narrative) FROM bench.items_original ORDER BY pos")
+        original = [r[0] for r in cur.fetchall()]
+        cur.execute("TRUNCATE bench.items")
+        if restore:
+            cur.execute("INSERT INTO bench.items (narrative) SELECT narrative FROM bench.items_original ORDER BY pos")
+        else:
+            cur.execute("INSERT INTO bench.items (narrative) SELECT narrative FROM bench.items_original "
+                        "ORDER BY md5(narrative || ':' || %s)", (str(seed),))
+        cur.execute("ANALYZE bench.items")
+        cur.execute("SELECT md5(narrative) FROM bench.items ORDER BY ctid")
+        now = [r[0] for r in cur.fetchall()]
+        conn.commit()
+    old_b, new_b = _batches(original, batch_size), _batches(now, batch_size)
+    members_old, members_new = {}, {}
+    for h, b in old_b.items():
+        members_old.setdefault(b, set()).add(h)
+    for h, b in new_b.items():
+        members_new.setdefault(b, set()).add(h)
+    shared = [len((members_old[old_b[h]] & members_new[new_b[h]]) - {h}) for h in now]
+    return {"rows": len(now), "identical_order": now == original,
+            "rows_with_no_shared_neighbour": sum(s == 0 for s in shared) / max(len(shared), 1),
+            "mean_shared_neighbours": sum(shared) / max(len(shared), 1)}
 
 
 def estimate_cost(conn, experiments):

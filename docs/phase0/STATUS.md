@@ -29,4 +29,6 @@ The technical half of the go/no-go is met: miscalibration 3.3× (choice) to 15×
 - **Determinism** (two repeats of `choice_base`, ≈ $0.053): identical requests change the top answer for 4.8 % of rows across three runs; only 27.5 % of rows get identical probabilities. Batching was verified identical via the simulator's request log, so the variation is the API's. This corrected the order and drift findings, because part of those flips was run-to-run noise.
 - **Label learning curve** (no API cost): about 100 labels remove 45–85 % of the raw ECE; one-parameter calibrators beat isotonic up to 500 labels. ADR 0003 is updated accordingly.
 
-See FINDINGS §4, §5, §7 and §8.
+- **Batch context** (issue #3, ≈ $0.053 including a same-day control): re-batching the same rows changed the top answer for ~16.5 % of rows, against ~3 % run-to-run noise (+13.6 pp [13.2, 14.1]). Flipped answers tend to match a new neighbour's answer. Docket must judge rows singly or record batch composition; batch size 1 is the next measurement.
+
+See FINDINGS §4, §5, §7, §8 and §9.

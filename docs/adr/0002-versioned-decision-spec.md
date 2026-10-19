@@ -25,3 +25,4 @@ Changing any of these creates a new version in `shadow` status. Phase 0 also sho
 - Every stored decision can be traced to the exact spec that produced it.
 - Gold labels attach to the decision and an options-set hash. When the label set changes, old labels need an explicit remap, and Docket refuses to reuse them silently.
 - Storage grows with versions. Retired versions can be compacted to summary statistics.
+- **Open question from Phase 0 (FINDINGS §9):** with 20 rows per request, changing a row's batch neighbours changed its top answer for ~16 % of rows (≈ 5× run-to-run noise). A judgment therefore depends on its batch. Docket must either judge rows singly or record batch composition with each judgment. Decide after measuring batch size 1.

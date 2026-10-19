@@ -57,6 +57,84 @@ def determinism(run_ids, experiment="choice_base"):
     }
 
 
+# ---------------------------------------------------------------- batch context
+def batch_context_stats(same, shuffled, y, n_boot=1000, seed=0):
+    """same: (k ≥ 3, rows, options) probabilities from runs with identical batches; shuffled: (rows, options) from a
+    run where every row had different batch neighbours.
+
+    Compares like with like. For each pair (i, j) of same-batch runs, take the rows where i and j agree.
+    Noise: how often the remaining same-batch run k disagrees with them. Context: how often the shuffled run does.
+    Both use the same rows, so the per-row difference isolates the effect of the neighbours.
+    """
+    k = same.shape[0]
+    top_same, top_s = same.argmax(axis=2), shuffled.argmax(axis=1)
+    diffs, noise_rates, ctx_rates = [], [], []
+    for i, j in combinations(range(k), 2):
+        rest = [m for m in range(k) if m not in (i, j)]
+        agree = top_same[i] == top_same[j]
+        for m in rest:
+            noise = (top_same[m][agree] != top_same[i][agree]).astype(float)
+            ctx = (top_s[agree] != top_same[i][agree]).astype(float)
+            noise_rates.append(noise.mean())
+            ctx_rates.append(ctx.mean())
+            diffs.append(ctx - noise)
+    diff = np.concatenate(diffs)
+    # probability movement: shuffled vs each same-batch run, against same-batch runs vs each other
+    move_ctx = np.mean([np.abs(shuffled - same[i]).max(axis=1).mean() for i in range(k)])
+    move_noise = np.mean([np.abs(same[i] - same[j]).max(axis=1).mean() for i, j in combinations(range(k), 2)])
+    flips_ctx = [float((top_s != top_same[i]).mean()) for i in range(k)]
+    flips_noise = [float((top_same[i] != top_same[j]).mean()) for i, j in combinations(range(k), 2)]
+    return {
+        "rows": int(len(y)),
+        "disagreement_noise": float(np.mean(noise_rates)), "disagreement_shuffled": float(np.mean(ctx_rates)),
+        "excess_disagreement": float(diff.mean()),
+        "excess_disagreement_ci": M.bootstrap_ci(np.mean, [diff], n_boot=n_boot, seed=seed),
+        "pairwise_flips_same_batches": flips_noise, "pairwise_flips_shuffled_vs_same": flips_ctx,
+        "mean_max_prob_change_same_batches": float(move_noise), "mean_max_prob_change_shuffled": float(move_ctx),
+        "accuracy_same": [float((top_same[i] == y).mean()) for i in range(k)],
+        "accuracy_shuffled": float((top_s == y).mean()),
+        "ece_same": [M.ece(same[i].max(axis=1), (top_same[i] == y).astype(float), 15) for i in range(k)],
+        "ece_shuffled": M.ece(shuffled.max(axis=1), (top_s == y).astype(float), 15),
+    }
+
+
+def batch_context(same_runs, shuffled_run, experiment="choice_base", reorder_info=None):
+    with connect() as conn:
+        runs = [load_run(conn, r) for r in same_runs + [shuffled_run]]
+    truth = runs[0][3]
+    opts = list(runs[0][1][experiment]["options"])
+    common = sorted(set.intersection(*(set(a[experiment]) for _, _, a, _ in runs)))
+    P = np.stack([[choice_probs(a[experiment][h], opts)[0] for h in common] for _, _, a, _ in runs])
+    y = np.array([opts.index(truth[h].product) for h in common])
+    out = batch_context_stats(P[:-1], P[-1], y)
+    out.update({"experiment": experiment, "same_batch_runs": same_runs, "shuffled_run": shuffled_run,
+                "reorder": reorder_info})
+    return out
+
+
+def render_batch_context(b):
+    pct = lambda x: f"{100 * x:.1f} %"
+    lo, hi = b["excess_disagreement_ci"]
+    r = b.get("reorder") or {}
+    L = [f"# Batch context: `{b['experiment']}`", "",
+         f"Same-batch runs: {', '.join(f'`{x}`' for x in b['same_batch_runs'])}. Shuffled-batch run: `{b['shuffled_run']}`. "
+         f"{b['rows']} rows, same options, same model; only each row's 19 batch neighbours differ."]
+    if r:
+        L += ["", f"After reordering, {pct(r['rows_with_no_shared_neighbour'])} of rows share no neighbour with their "
+                  f"original batch (mean shared neighbours {r['mean_shared_neighbours']:.2f} of 19)."]
+    L += ["", "| measure | same batches (noise) | shuffled batches |", "| --- | ---: | ---: |",
+          f"| disagreement with a pair of same-batch runs that agree | {pct(b['disagreement_noise'])} | {pct(b['disagreement_shuffled'])} |",
+          f"| pairwise top-1 flips | {', '.join(pct(x) for x in b['pairwise_flips_same_batches'])} | "
+          f"{', '.join(pct(x) for x in b['pairwise_flips_shuffled_vs_same'])} |",
+          f"| mean largest probability change per row | {b['mean_max_prob_change_same_batches']:.4f} | {b['mean_max_prob_change_shuffled']:.4f} |",
+          f"| accuracy | {', '.join(pct(x) for x in b['accuracy_same'])} | {pct(b['accuracy_shuffled'])} |",
+          f"| top-label ECE | {', '.join(f'{x:.3f}' for x in b['ece_same'])} | {b['ece_shuffled']:.3f} |", "",
+          f"**Excess disagreement caused by different neighbours:** {100 * b['excess_disagreement']:+.2f} pp "
+          f"[{100 * lo:+.2f}, {100 * hi:+.2f}] (95 % bootstrap CI over rows). A CI that includes 0 means the batch "
+          "context effect is not distinguishable from run-to-run noise."]
+    return "\n".join(L) + "\n"
+
+
 # ---------------------------------------------------------------- learning curve
 def _choice_arrays(exps, answers, truth, name):
     opts = list(exps[name]["options"])

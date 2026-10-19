@@ -7,6 +7,8 @@
   cachecheck  show whether pg-jev reuses answers across backends within one session
   determinism compare one experiment across repeated runs (no API calls)
   curve       label learning curve for calibrators on a stored run (no API calls)
+  reorder     re-insert bench.items in a seeded order (new batch neighbours), or --restore the original
+  batchcontext compare a shuffled-batch run with same-batch runs (no API calls)
 """
 import argparse
 import json
@@ -55,6 +57,16 @@ def main(argv=None):
     c.add_argument("--sizes", default="100,200,500,1000")
     c.add_argument("--repeats", type=int, default=50)
 
+    o = sub.add_parser("reorder")
+    o.add_argument("--seed", default="1")
+    o.add_argument("--restore", action="store_true")
+
+    bc = sub.add_parser("batchcontext")
+    bc.add_argument("--same", required=True, help="comma-separated runs with the original batches")
+    bc.add_argument("--shuffled", required=True, help="the run made after `reorder`")
+    bc.add_argument("--experiment", default="choice_base")
+    bc.add_argument("--reorder-info", default=None, help="JSON printed by `reorder`, embedded in the report")
+
     sub.add_parser("cachecheck")
     sub.add_parser("experiments")
 
@@ -98,6 +110,14 @@ def main(argv=None):
         sizes = tuple(int(x) for x in args.sizes.split(","))
         c = followup.learning_curve(run_id, sizes, args.repeats)
         print("report:", followup.write(c, followup.render_curve(c), f"results/{run_id}/learning_curve"))
+    elif args.cmd == "reorder":
+        print(json.dumps(runner.reorder(seed=args.seed, restore=args.restore), indent=2))
+    elif args.cmd == "batchcontext":
+        same = args.same.split(",")
+        b = followup.batch_context(same, args.shuffled, args.experiment,
+                                   json.loads(args.reorder_info) if args.reorder_info else None)
+        print("report:", followup.write(b, followup.render_batch_context(b),
+                                        f"results/{same[0]}/batch_context_{args.experiment}"))
     elif args.cmd == "cachecheck":
         print(json.dumps(runner.cache_check(), indent=2))
     elif args.cmd == "experiments":

@@ -42,6 +42,9 @@ make bench              # BACKEND=sim by default; writes results/<run_id>/report
 make cachecheck         # demonstrates the cross-backend cache reuse in one session
 make curve RUN=<run_id> # label learning curve for calibrators (no API calls)
 docker compose run --rm bench determinism --runs <run1>,<run2>,<run3>   # repeat-run comparison
+docker compose run --rm bench reorder --seed 1      # re-insert bench.items so pg-jev forms new batches
+docker compose run --rm bench reorder --restore     # back to the original order
+docker compose run --rm bench batchcontext --same <runs> --shuffled <run>   # batch-context comparison
 ```
 
 ### Real Jev

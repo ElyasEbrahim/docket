@@ -1,6 +1,6 @@
 # How calibrated is Jev on real Postgres data? Phase 0 findings (draft technical note)
 
-**Run:** `jev-20261017-122314` (plus two repeats of `choice_base`, `jev-20261018-110601` / `-110607`) · model `jev-1.13.0` via pg-jev 0.2.1 · 2,000 CFPB complaint narratives (CC0 mirror, 2015–2024, ≤ 1,500 chars) · 6 experiments, 12,000 judgments · **3.46M input tokens, ≈ $0.146**, 24 s wall-clock.
+**Run:** `jev-20261017-122314` (plus `choice_base` repeats `jev-20261018-110601` / `-110607` / `jev-20261019-072124` and a shuffled-batch run `jev-20261019-072045`) · model `jev-1.13.0` via pg-jev 0.2.1 · 2,000 CFPB complaint narratives (CC0 mirror, 2015–2024, ≤ 1,500 chars) · 6 experiments, 12,000 judgments · **3.46M input tokens, ≈ $0.146**, 24 s wall-clock.
 Full numbers: [`results/jev-20261017-122314/report.md`](../../results/jev-20261017-122314/report.md).
 
 Ground truth is what the consumer selected on the CFPB form (product, issue). It is noisy and sometimes defines the question differently from the narrative, so agreement is a **lower bound** on fidelity to the text.
@@ -89,9 +89,28 @@ Fit the calibrator on *n* random labeled rows and score ECE on 1,000 other rows,
 - **Diminishing returns after 200–500 labels.** Debt collection reaches the noise floor around 1,000. "Incorrect report" plateaus around 0.045, above its 0.029 floor, because its scores rank less well (AUROC 0.75), so no monotone map can make it perfect.
 - **Review-budget rule of thumb for Docket v0.1:** ask for 200 labels per decision to start, and offer 500 for tighter guarantees. A few hours of review per decision is a reasonable request.
 
+## 9. A row's answer depends on which rows it is batched with
+
+pg-jev sends 20 rows per request in one shared state. To test whether the neighbours matter, `bench.items` was re-inserted in a seeded order (`jevbench reorder --seed 1`), so 83 % of rows shared no neighbour with their original batch. `choice_base` was run once. As a control, it was run again the same day with the original batches, so a server-side change on that day can't explain the result.
+Full table: [`results/jev-20261017-122314/batch_context_choice_base.md`](../../results/jev-20261017-122314/batch_context_choice_base.md).
+
+| Measure | Same batches (4 runs, 3 days) | Shuffled batches |
+| --- | ---: | ---: |
+| Pairwise top-1 disagreement | 2.6 – 3.8 % | **16.4 – 16.7 %** |
+| Disagreement with a pair of same-batch runs that agree | 1.6 % | 15.2 % |
+| Mean largest probability change per row | 0.031 | **0.192** |
+| Accuracy / top-label ECE | 76.8–77.0 % / 0.089–0.093 | 76.5 % / 0.085 |
+
+- **Changing a row's batch neighbours changes its top answer about 5× as often as asking again**: an excess of **+13.6 pp [13.2, 14.1]** over run-to-run noise. Today's same-batch control agrees with the earlier runs at noise level, so the effect is the neighbours, not the date.
+- **Aggregates hide it.** Accuracy and calibration barely move, but about 1 row in 7 gets a different answer.
+- **It looks like leakage between rows.** On the 267 rows that flipped, the new answer matches what the model usually says about one of the *new* neighbours 92.5 % of the time, against 82.8 % for the old neighbours (88.8 % vs 74.3 % excluding "credit reporting"). Flips also cluster on rows that sat in the last slots of their original batch: 23–30 % at positions 16–18, against 6–9 % at positions 0–2. No clear pattern shows by new position, so the mechanism isn't settled.
+- **Flipped rows are hard rows.** On them, the same-batch answer was correct 49.8 % of the time and the shuffled answer 39.0 %.
+- pg-jev's README reports batches of 1–20 as 100 % correct on conditions over structured columns. On free-text narratives, batch context clearly matters.
+- **Design consequence for Docket:** a judgment is not a function of the row alone. Incremental judging (new rows batched together) and a backfill would disagree on about 1 row in 7. Docket must either judge rows singly or record batch composition in the ledger. Batch size 1 costs about 2.5× the tokens (≈ 435 vs 175 per row in pg-jev's measurements), which is still about $15 per million rows. The next measurement is accuracy and stability at batch size 1.
+
 ## Limits of this note
 
-One model version, one dataset, three runs of one experiment, 2,000 rows (small classes have 24–39 examples), consumer-selected labels, English only, narratives truncated to 1,500 characters.
+One model version, one dataset, four same-batch runs and one shuffled-batch run of one experiment, 2,000 rows (small classes have 24–39 examples), consumer-selected labels, English only, narratives truncated to 1,500 characters.
 
 ## Phase 0 go/no-go (technical half)
 
@@ -102,11 +121,12 @@ One model version, one dataset, three runs of one experiment, 2,000 rows (small 
 | Label-set change moves decisions | **Yes, small**: 2.5 % of answers move to the new, always-wrong option; other churn is within noise |
 | Answers are reproducible | **No**: 4.8 % of rows change top answer across 3 identical runs (new argument for the ledger) |
 | Labels needed for calibration | ~100–200 for most of the gain |
+| Answers depend on batch neighbours | **Yes, strongly**: 16.5 % of rows change top answer when neighbours change, against 3 % noise |
 
 The user-demand half (≥ 3 people who would use durable decisions) is still open.
 
 ## Next measurements (cheap)
 
-1. **Batch context:** does a row's answer depend on its 19 batch neighbours? Shuffle `bench.items` and re-run `choice_base` (≈ $0.03). This matters because Docket judges new rows in different batches than a backfill does.
+1. **Batch size 1:** accuracy, calibration and run-to-run stability with `jev.batch_size = 1` (≈ $0.04). Decides whether Docket judges rows singly (§9).
 2. Same harness against a local Laya/stuntd backend (`--api-url`) for a cross-backend comparison.
 3. A second dataset (e.g. OSHA severe-injury narratives) so the note isn't single-dataset.

@@ -85,3 +85,23 @@ def test_null_ece_floor_is_small_and_floor_removes_zeros():
     Q = _floor(P)
     assert (Q > 0).all() and np.allclose(Q.sum(axis=1), 1.0)
     assert Q.min() == pytest.approx(0.005 / (1 + 0.005), rel=1e-6)
+
+
+def test_batch_context_stats_separates_noise_from_context():
+    from jevbench.followup import batch_context_stats
+    rng = np.random.default_rng(7)
+    n, k = 4000, 5
+    y = rng.integers(0, k, n)
+
+    def run(flip_rate):
+        P = np.full((n, k), 0.02)
+        top = np.where(rng.random(n) < flip_rate, rng.integers(0, k, n), y)
+        P[np.arange(n), top] = 0.92
+        return P
+
+    same = np.stack([run(0.03) for _ in range(3)])
+    no_effect = batch_context_stats(same, run(0.03), y, n_boot=200)
+    lo, hi = no_effect["excess_disagreement_ci"]
+    assert lo < 0.0 < hi
+    effect = batch_context_stats(same, run(0.15), y, n_boot=200)
+    assert effect["excess_disagreement_ci"][0] > 0.05
