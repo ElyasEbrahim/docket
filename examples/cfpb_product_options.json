@@ -1,0 +1,29 @@
+[
+  {
+    "name": "credit reporting"
+  },
+  {
+    "name": "debt collection"
+  },
+  {
+    "name": "mortgage"
+  },
+  {
+    "name": "credit card"
+  },
+  {
+    "name": "checking or savings account"
+  },
+  {
+    "name": "student loan"
+  },
+  {
+    "name": "money transfer or virtual currency"
+  },
+  {
+    "name": "vehicle loan or lease"
+  },
+  {
+    "name": "payday, title, or personal loan"
+  }
+]

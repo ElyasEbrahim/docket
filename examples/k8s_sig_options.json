@@ -1,0 +1,12 @@
+[
+  {"name": "node", "description": "kubelet, container runtime (CRI), pod lifecycle and resources on a node"},
+  {"name": "api-machinery", "description": "API server, etcd storage layer, CRDs, admission webhooks, client libraries, garbage collection"},
+  {"name": "scheduling", "description": "kube-scheduler, pod placement, preemption, scheduling plugins"},
+  {"name": "network", "description": "Services, kube-proxy, DNS, Ingress and Gateway, network policies"},
+  {"name": "storage", "description": "volumes, PersistentVolumes, CSI drivers, storage classes"},
+  {"name": "apps", "description": "workload controllers: Deployments, StatefulSets, DaemonSets, Jobs, CronJobs"},
+  {"name": "auth", "description": "authentication, authorization and RBAC, service accounts, certificates"},
+  {"name": "cli", "description": "kubectl and kustomize"},
+  {"name": "testing", "description": "test infrastructure and the e2e test framework"},
+  {"name": "instrumentation", "description": "metrics, logging, events, tracing"}
+]

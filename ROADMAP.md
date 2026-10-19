@@ -25,7 +25,11 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 
 **Exit (go/no-go):** measurable miscalibration or drift on real data **and** ≥3 people say they would use durable decisions.
 
+**Decision (2026-10-19):** the technical half is met. The demand half is **deferred, not dropped**: no real users have been reached yet, so work continues into Phase 1 on real public data that stands in for a user's table (Kubernetes issue triage, #11). The first deliverable is something people can try on their own data without a conversation (`docket check`, #12). Revisit the demand gate once that check is usable and has been promoted.
+
 ## Phase 1: Ledger core (weeks 3–6)
+
+- [x] `docket check` (#12): the first piece people can run on their own data; validated against Phase 0 and run on the Kubernetes triage scenario (#11)
 
 - [ ] Migration tooling for the `docket` schema (plain SQL; PG 14–18)
 - [ ] Tables: `decision`, `decision_version` (spec + `spec_hash`), `judgment` (append-only), `queue`

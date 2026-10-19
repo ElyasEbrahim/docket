@@ -10,12 +10,13 @@
   reorder     re-insert bench.items in a seeded order (new batch neighbours), or --restore the original
   batchcontext compare a shuffled-batch run with same-batch runs (no API calls)
   batchsize   compare a single-row run (--batch-size 1) with batched runs (no API calls)
+  load-github load Kubernetes issues (from `python -m jevbench.ghissues`) into demo.k8s_issues
 """
 import argparse
 import json
 import sys
 
-from . import fetch, followup, report, runner
+from . import demo, fetch, followup, report, runner
 from .tasks import default_experiments
 
 
@@ -75,6 +76,9 @@ def main(argv=None):
     bs.add_argument("--shuffled", default=None, help="optional shuffled-batch run from the batch-context check")
     bs.add_argument("--experiment", default="choice_base")
 
+    lg = sub.add_parser("load-github")
+    lg.add_argument("--input", default="data/raw/github_kubernetes.jsonl")
+
     sub.add_parser("cachecheck")
     sub.add_parser("experiments")
 
@@ -132,6 +136,8 @@ def main(argv=None):
         b = followup.batch_size_compare(batched, args.single, args.shuffled, args.experiment)
         print("report:", followup.write(b, followup.render_batch_size(b),
                                         f"results/{batched[0]}/batch_size_{args.experiment}"))
+    elif args.cmd == "load-github":
+        print(json.dumps(demo.load_github(args.input), indent=2))
     elif args.cmd == "cachecheck":
         print(json.dumps(runner.cache_check(), indent=2))
     elif args.cmd == "experiments":

@@ -44,7 +44,7 @@ smoke: up
 	$(PSQL) < harness/sql/smoke.sql
 
 test:
-	$(COMPOSE) run --rm --no-deps --entrypoint python bench -m pytest -q harness/tests
+	$(COMPOSE) run --rm --no-deps --entrypoint python bench -m pytest -q harness/tests docket/tests
 
 fetch:
 	$(BENCH) fetch --n $(FETCH_N)

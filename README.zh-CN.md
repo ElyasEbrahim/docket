@@ -7,7 +7,7 @@
 
 **为 Postgres 提供可持久保存、可版本化、经过校准的 AI 判断。** 你只需定义一次语义判断（例如 *"这条投诉是否与催收有关？"*），Docket 会把结果作为数据保存下来：带版本、用你自己的标注校准，并如实给出不确定性。它适用于任何 Postgres，也适用于任何判断模型。
 
-> **状态：第 0 阶段（验证）。** Docket 产品本身尚未开发。本仓库目前包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)），以及一套可运行的基准测试工具，并已在真实数据上测量了问题（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/docket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/docket/milestones) 跟踪。
+> **状态：第 1 阶段已开始。** Docket 的第一个组件已经可用：[`docket check`](docket/README.md) 可以衡量 AI 判断在*你自己的*数据表上有多可靠。产品的其余部分（持久保存、带版本的判断）尚未开发。本仓库还包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)）和第 0 阶段的基准测试（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/docket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/docket/milestones) 跟踪。
 
 > 注：除本 README 外，其余文档目前仅有英文版。
 
@@ -38,6 +38,18 @@
 | 分数很粗糙 | 概率以 0.01 为刻度，并且有大量恰好为 0 的值 |
 
 面向一般读者的文章：[*Same row, different answer*](docs/notes/2026-10-same-row-different-answer.md)（英文）。详细结果、方法和局限：[docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md)（英文）。
+
+## 在你自己的数据上试用：`docket check`
+
+指定一张表、要发送的文本列、一个问题和一些标注（已有的标注列，或你手工标注的 CSV），它会报告：与标注的一致程度、校准情况、一个带有明确精确率保证的阈值、答案的稳定性以及成本。全程只读，报告中不包含任何行的文本内容。
+
+```bash
+python -m docket check --table public.tickets --key id --text subject,body \
+  --kind choice --question "Which team should handle this ticket?" \
+  --options billing,technical,security,sales --label-column team --yes
+```
+
+在两年的 Kubernetes issue 上，把 issue 分派给 10 个团队（SIG）的结果与人工标注的一致率为 **88.8%**；**90% 的 issue 可以自动分派，并以 95% 的置信度保证精确率 ≥ 90%**（[说明](docs/phase1/kubernetes-triage.md)、[报告](results/check-k8s-sig/report.md)，均为英文）。完整用法：[docket/README.md](docket/README.md)（英文）。
 
 ## Docket 将会是什么
 
@@ -79,6 +91,9 @@ make bench BACKEND=jev ARGS=--yes   # 会先显示预估费用；超过 1 美元
 | [docs/adr/](docs/adr/) | 架构决策记录 |
 | [docs/phase0/](docs/phase0/) | 第 0 阶段的结论、状态、待提交给上游的问题草稿 |
 | [docs/notes/](docs/notes/) | 面向公众的文章 |
+| [docs/phase1/](docs/phase1/) | 第 1 阶段结果（Kubernetes issue 分派） |
+| [docket/](docket/) | 产品本身：`docket check`（之后还有判断记录表） |
+| [examples/](examples/) | 示例检查所用的选项文件（含说明） |
 | [harness/](harness/) | 基准测试工具：`jevbench` 命令行、模拟后端、测试 |
 | [results/](results/) | 结论中引用的各次运行报告 |
 | `docker-compose.yml`、`Makefile` | 测试环境及其命令 |

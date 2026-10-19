@@ -1,0 +1,449 @@
+"""`docket check`: how trustworthy is an AI decision on *your* table?
+
+Samples labeled rows (read-only), judges them one row per request, and reports agreement with the labels,
+calibration before and after a one-parameter calibrator, a threshold with a stated precision guarantee,
+optional run-to-run stability and batching sensitivity, and the projected cost for the whole table.
+Row text never appears in the report.
+"""
+import csv
+import json
+import os
+import time
+from collections import Counter
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+
+import numpy as np
+
+from . import metrics as M
+from .backend import USD_PER_INPUT_TOKEN, Backend
+
+
+@dataclass
+class CheckConfig:
+    dsn: str
+    table: str
+    key: str
+    text: list
+    kind: str                                   # 'choice' or 'noul'
+    question: str
+    options: list = field(default_factory=list)            # choice: [{"name", "description"}]
+    label_column: str = None
+    label_file: str = None
+    positive: str = None                        # noul: label value that means "yes"
+    where: str = None
+    sample: int = 300
+    seed: str = "1"
+    backend: str = "jev"
+    model: str = "jev-1.13.0"
+    batch_size: int = 1
+    repeat: int = 0
+    batch_test: int = 0
+    precision_target: float = 0.9
+    alpha: float = 0.05
+    max_usd: float = 1.0
+    out: str = None
+
+
+# ---------------------------------------------------------------- data access (read-only)
+def _ident(name):
+    from psycopg import sql
+    return sql.Identifier(*name.split("."))
+
+
+def _connect(dsn):
+    import psycopg
+    conn = psycopg.connect(dsn)
+    conn.read_only = True                      # Docket's check never writes to your database
+    return conn
+
+
+def option_names(cfg):
+    return [o["name"] for o in cfg.options]
+
+
+def option_display(cfg):
+    """What the model sees: 'name: description' when a description is given."""
+    return [f"{o['name']}: {o['description']}" if o.get("description") else o["name"] for o in cfg.options]
+
+
+def _filter_sql(cfg):
+    from psycopg import sql
+    parts = []
+    if cfg.label_column and not cfg.label_file:
+        parts.append(sql.SQL("{} IS NOT NULL").format(sql.Identifier(cfg.label_column)))
+        if cfg.kind == "choice":
+            parts.append(sql.SQL("{}::text = ANY({})").format(sql.Identifier(cfg.label_column),
+                                                               sql.Literal(option_names(cfg))))
+    if cfg.where:
+        parts.append(sql.SQL("(") + sql.SQL(cfg.where) + sql.SQL(")"))
+    return sql.SQL(" WHERE ") + sql.SQL(" AND ").join(parts) if parts else sql.SQL("")
+
+
+def read_sample(cfg):
+    from psycopg import sql
+    cols = [sql.SQL("{}::text").format(sql.Identifier(cfg.key))]
+    cols += [sql.Identifier(c) for c in cfg.text]
+    if cfg.label_column and not cfg.label_file:
+        cols.append(sql.SQL("{}::text").format(sql.Identifier(cfg.label_column)))
+    q = sql.SQL("SELECT {} FROM {}{} ORDER BY md5({}::text || {}) LIMIT {}").format(
+        sql.SQL(", ").join(cols), _ident(cfg.table), _filter_sql(cfg), sql.Identifier(cfg.key),
+        sql.Literal(":" + str(cfg.seed)), sql.Literal(cfg.sample))
+    with _connect(cfg.dsn) as conn, conn.cursor() as cur:
+        cur.execute(q)
+        rows = cur.fetchall()
+        cur.execute(sql.SQL("SELECT count(*) FROM {}{}").format(_ident(cfg.table), _filter_sql(cfg)))
+        in_scope = cur.fetchone()[0]
+        cur.execute(sql.SQL("SELECT count(*) FROM {}").format(_ident(cfg.table)))
+        table_rows = cur.fetchone()[0]
+    sample = []
+    for r in rows:
+        record = {c: ("" if v is None else str(v)) for c, v in zip(cfg.text, r[1:1 + len(cfg.text)])}
+        label = r[1 + len(cfg.text)] if (cfg.label_column and not cfg.label_file) else None
+        sample.append({"key": r[0], "record": record, "label": label})
+    if cfg.label_file:
+        labels = {}
+        with open(cfg.label_file, newline="") as f:
+            for row in csv.DictReader(f):
+                if (row.get("label") or "").strip():
+                    labels[row["key"]] = row["label"].strip()
+        sample = [dict(s, label=labels[s["key"]]) for s in sample if s["key"] in labels]
+        if cfg.kind == "choice":
+            names = set(option_names(cfg))
+            unknown = Counter(s["label"] for s in sample if s["label"] not in names)
+            if unknown:
+                print(f"skipping {sum(unknown.values())} rows whose label is not an option: {dict(unknown)}")
+            sample = [s for s in sample if s["label"] in names]
+    return sample, in_scope, table_rows
+
+
+def export_sample(cfg, path):
+    """Write a CSV with the sampled rows and an empty `label` column, for labeling by hand."""
+    sample, _, _ = read_sample(CheckConfig(**dict(asdict(cfg), label_column=None, label_file=None)))
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["key"] + cfg.text + ["label"])
+        for s in sample:
+            w.writerow([s["key"]] + [s["record"][c] for c in cfg.text] + [""])
+    return len(sample)
+
+
+# ---------------------------------------------------------------- answers → arrays
+def _choice_probs(answer, display):
+    probs = answer.get("probabilities") or {}
+    legend = answer.get("legend") or {}
+    v = np.zeros(len(display))
+    for k, p in probs.items():
+        name = legend.get(k, k)
+        if name in display:
+            v[display.index(name)] = float(p)
+        elif str(k).isdigit() and int(k) < len(display):
+            v[int(k)] = float(p)
+    if v.sum() <= 0 and answer.get("choice") in display:
+        v[display.index(answer["choice"])] = 1.0
+    return v / v.sum() if v.sum() > 0 else np.full(len(display), 1 / len(display))
+
+
+def _floor(P):
+    if not (P == 0).any():
+        return P
+    Q = np.maximum(P, P[P > 0].min() / 2)
+    return Q / Q.sum(axis=1, keepdims=True)
+
+
+# ---------------------------------------------------------------- analysis
+LADDER = (0.95, 0.9, 0.85, 0.8, 0.75, 0.7)
+
+
+def _ladder(score, correct, alpha, positives=None):
+    """For each precision target: how many rows can be auto-accepted with that guarantee (None if none).
+    For yes/no questions (`positives` given) also the share of all real positives caught (recall)."""
+    out = []
+    for t in LADDER:
+        c = M.precision_threshold(score, correct, t, alpha)["chosen"]
+        row = {"target": t, "threshold": c["threshold"] if c else None, "coverage": c["coverage"] if c else 0.0}
+        if positives is not None:
+            row["recall"] = (float(((score >= c["threshold"]) & (positives == 1)).sum() / max(positives.sum(), 1))
+                             if c else 0.0)
+        out.append(row)
+    return out
+def analyse_choice(cfg, sample, answers):
+    names, display = option_names(cfg), option_display(cfg)
+    P = np.array([_choice_probs(a, display) for a in answers])
+    y = np.array([names.index(s["label"]) for s in sample])
+    pred = P.argmax(axis=1)
+    correct = (pred == y).astype(float)
+    conf = P.max(axis=1)
+    P_cal, T = M.crossfit_temperature(_floor(P), y)
+    conf_cal = P_cal.max(axis=1)
+    correct_cal = (P_cal.argmax(axis=1) == y).astype(float)
+    confusions = Counter((names[t], names[p]) for t, p in zip(y, pred) if t != p).most_common(5)
+    return {
+        "n": len(y), "accuracy": float(correct.mean()), "accuracy_ci": M.bootstrap_ci(np.mean, [correct]),
+        "macro_f1": M.macro_f1(pred, y, len(names)),
+        "per_class": [{"option": o, "support": int((y == c).sum()), "predicted": int((pred == c).sum()),
+                       "recall": float(correct[y == c].mean()) if (y == c).any() else None,
+                       "precision": float((y[pred == c] == c).mean()) if (pred == c).any() else None}
+                      for c, o in enumerate(names)],
+        "top_confusions": [{"label": a, "answer": b, "count": n} for (a, b), n in confusions],
+        "ece_raw": M.ece(conf, correct, 15), "ece_raw_ci": M.bootstrap_ci(lambda a, b: M.ece(a, b, 15), [conf, correct]),
+        "temperature": T, "ece_calibrated": M.ece(conf_cal, correct_cal, 15),
+        "reliability_raw": M.reliability_bins(conf, correct, 10),
+        "reliability_calibrated": M.reliability_bins(conf_cal, correct_cal, 10),
+        "exact_zeros": int((P == 0).sum()), "label_prob_zero": int((P[np.arange(len(y)), y] == 0).sum()),
+        "threshold": M.precision_threshold(conf_cal, correct_cal, cfg.precision_target, cfg.alpha),
+        "ladder": _ladder(conf_cal, correct_cal, cfg.alpha),
+        "zeros_clamped": bool((P == 0).any()),
+        "_top": pred,
+    }
+
+
+def analyse_noul(cfg, sample, answers):
+    p = np.array([float(a["noul"]) for a in answers])
+    y = np.array([s["label"] == cfg.positive for s in sample], float)
+    p_cal = M.crossfit_binary(p, y, "platt")
+    thr = M.precision_threshold(p_cal, y, cfg.precision_target, cfg.alpha)
+    if thr["chosen"]:
+        acc = p_cal >= thr["chosen"]["threshold"]
+        thr["chosen"]["recall"] = float((acc & (y == 1)).sum() / max(y.sum(), 1))
+    prec, rec, f1 = M.prf(p >= 0.5, y.astype(bool))
+    return {
+        "n": len(y), "prevalence": float(y.mean()), "auroc": M.auroc(p, y), "auroc_ci": M.bootstrap_ci(M.auroc, [p, y]),
+        "precision_at_0.5": prec, "recall_at_0.5": rec, "f1_at_0.5": f1,
+        "ece_raw": M.ece(p, y, 15), "ece_raw_ci": M.bootstrap_ci(lambda a, b: M.ece(a, b, 15), [p, y]),
+        "ece_calibrated": M.ece(p_cal, y, 15),
+        "reliability_raw": M.reliability_bins(p, y, 10), "reliability_calibrated": M.reliability_bins(p_cal, y, 10),
+        "threshold": thr, "ladder": _ladder(p_cal, y, cfg.alpha, positives=y), "_p": p,
+    }
+
+
+# ---------------------------------------------------------------- run
+def run_check(cfg, api_key=None, log=print, yes=False):
+    t_start = time.time()
+    sample, in_scope, table_rows = read_sample(cfg)
+    if len(sample) < 30:
+        raise SystemExit(f"only {len(sample)} labeled rows found; need at least 30 (100–200 recommended)")
+    backend = Backend(cfg.backend, api_key=api_key, model=cfg.model)
+    chars = sum(len(json.dumps(s["record"])) for s in sample)
+    per_row = chars / len(sample) / 3.5 + 120 + (270 if cfg.batch_size == 1 else 270 / cfg.batch_size)
+    calls = len(sample) + min(cfg.repeat, len(sample)) + min(cfg.batch_test, len(sample))
+    est = per_row * calls * USD_PER_INPUT_TOKEN
+    log(f"{len(sample)} labeled rows sampled from {in_scope:,} in scope ({table_rows:,} in {cfg.table}); "
+        f"{calls} judgments; estimated ≤ ${est:.3f}" + ("" if backend.paid else " (free backend)"))
+    if backend.paid and est > cfg.max_usd:
+        raise SystemExit(f"estimated ${est:.2f} exceeds --max-usd {cfg.max_usd}")
+    if backend.paid and not yes:
+        raise SystemExit("paid backend: re-run with --yes to confirm the estimate above")
+
+    records = [s["record"] for s in sample]
+    opts = option_display(cfg) if cfg.kind == "choice" else None
+    answers = backend.judge(records, cfg.kind, cfg.question, opts, cfg.batch_size,
+                            progress=lambda d, n: log(f"  judged {d}/{n} requests"))
+    main_tokens = backend.stats["input_tokens"]
+    analysis = (analyse_choice if cfg.kind == "choice" else analyse_noul)(cfg, sample, answers)
+
+    def decisions(ans):
+        if cfg.kind == "choice":
+            return np.array([_choice_probs(a, opts).argmax() for a in ans])
+        return np.array([float(a["noul"]) for a in ans])
+
+    base = analysis.pop("_top" if cfg.kind == "choice" else "_p")
+    stability = batching = None
+    if cfg.repeat:
+        m = min(cfg.repeat, len(sample))
+        again = decisions(backend.judge(records[:m], cfg.kind, cfg.question, opts, cfg.batch_size))
+        if cfg.kind == "choice":
+            stability = {"rows": m, "changed": float((again != base[:m]).mean())}
+        else:
+            stability = {"rows": m, "changed": float(((again >= 0.5) != (base[:m] >= 0.5)).mean()),
+                         "mean_abs_change": float(np.abs(again - base[:m]).mean())}
+    if cfg.batch_test:
+        m = min(cfg.batch_test, len(sample))
+        batched = decisions(backend.judge(records[:m], cfg.kind, cfg.question, opts, 20))
+        labels = [s["label"] for s in sample[:m]]
+        if cfg.kind == "choice":
+            names = option_names(cfg)
+            y = np.array([names.index(l) for l in labels])
+            batching = {"rows": m, "changed": float((batched != base[:m]).mean()),
+                        "accuracy_single": float((base[:m] == y).mean()), "accuracy_batched": float((batched == y).mean())}
+        else:
+            batching = {"rows": m, "changed": float(((batched >= 0.5) != (base[:m] >= 0.5)).mean()),
+                        "mean_abs_change": float(np.abs(batched - base[:m]).mean())}
+
+    tokens_per_row = main_tokens / len(sample)
+    result = {
+        "docket_version": __import__("docket").__version__,
+        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "config": {k: v for k, v in asdict(cfg).items() if k != "dsn"},
+        "backend": {"url": backend.url, "model": cfg.model, "batch_size": cfg.batch_size},
+        "sample": {"labeled_rows": len(sample), "rows_in_scope": in_scope, "table_rows": table_rows,
+                   "label_counts": dict(Counter(s["label"] for s in sample).most_common())},
+        "analysis": analysis, "stability": stability, "batching": batching,
+        "cost": {"requests": backend.stats["requests"], "input_tokens": backend.stats["input_tokens"],
+                 "usd": backend.cost_usd(), "tokens_per_row": tokens_per_row,
+                 "projected_usd_table": tokens_per_row * table_rows * USD_PER_INPUT_TOKEN,
+                 "projected_usd_per_million_rows": tokens_per_row * 1e6 * USD_PER_INPUT_TOKEN,
+                 "seconds": time.time() - t_start},
+    }
+    out = cfg.out or os.path.join("results", "check-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S"))
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "report.json"), "w") as f:
+        json.dump(result, f, indent=2, default=float)
+    with open(os.path.join(out, "judgments.jsonl"), "w") as f:      # keys and answers only, no row text
+        for s, a in zip(sample, answers):
+            f.write(json.dumps({"key": s["key"], "label": s["label"], "answer": a}) + "\n")
+    with open(os.path.join(out, "report.md"), "w") as f:
+        f.write(render(result))
+    return out, result
+
+
+def reanalyze(out, precision_target=None):
+    """Recompute the analysis from a check folder's judgments.jsonl (no API calls) and rewrite the report."""
+    with open(os.path.join(out, "report.json")) as f:
+        result = json.load(f)
+    conf = dict(result["config"], dsn="")
+    if precision_target is not None:
+        conf["precision_target"] = precision_target
+    cfg = CheckConfig(**conf)
+    sample, answers = [], []
+    with open(os.path.join(out, "judgments.jsonl")) as f:
+        for line in f:
+            j = json.loads(line)
+            sample.append({"key": j["key"], "record": None, "label": j["label"]})
+            answers.append(j["answer"])
+    analysis = (analyse_choice if cfg.kind == "choice" else analyse_noul)(cfg, sample, answers)
+    analysis.pop("_top", None)
+    analysis.pop("_p", None)
+    result["analysis"], result["config"] = analysis, {k: v for k, v in asdict(cfg).items() if k != "dsn"}
+    with open(os.path.join(out, "report.json"), "w") as f:
+        json.dump(result, f, indent=2, default=float)
+    with open(os.path.join(out, "report.md"), "w") as f:
+        f.write(render(result))
+    return result
+
+
+# ---------------------------------------------------------------- report
+def _pct(x):
+    return "–" if x is None else f"{100 * x:.1f} %"
+
+
+def _num(x):
+    return "–" if x is None else f"{x:.3f}"
+
+
+def _rel_table(rows):
+    L = ["| confidence | rows | stated | observed |", "| --- | ---: | ---: | ---: |"]
+    L += [f"| {lo:.1f}–{hi:.1f} | {n} | {mc:.2f} | {acc:.2f} |" for lo, hi, n, mc, acc in rows if n]
+    return "\n".join(L)
+
+
+def recommendations(r):
+    a, cfg, out = r["analysis"], r["config"], []
+    if a["ece_raw"] > 0.05:
+        out.append(f"**Don't read the raw scores as probabilities.** Calibration error is {a['ece_raw']:.3f}; "
+                   f"after a one-parameter calibrator fitted on these labels it is {a['ece_calibrated']:.3f}.")
+    else:
+        out.append(f"Raw scores are already reasonably calibrated here (error {a['ece_raw']:.3f}).")
+    th = a["threshold"]
+    if th["chosen"]:
+        c = th["chosen"]
+        extra = f", catching {_pct(c.get('recall'))} of the positives" if "recall" in c else ""
+        out.append(f"**Auto-accept answers with calibrated {'confidence' if cfg['kind'] == 'choice' else 'probability'} "
+                   f"≥ {c['threshold']:.2f}.** That covers {_pct(c['coverage'])} of rows{extra}, with precision "
+                   f"≥ {_pct(th['target'])} at {100 * (1 - th['alpha']):.0f} % confidence (observed {_pct(c['precision'])}). "
+                   "Send the rest to a person.")
+    else:
+        best = next((l for l in a.get("ladder", []) if l["coverage"] > 0), None)
+        caught = f", catching {_pct(best['recall'])} of the real yeses" if best and "recall" in best else ""
+        alt = (f" The highest target that can be guaranteed here is {_pct(best['target'])}, for {_pct(best['coverage'])} "
+               f"of rows{caught} (see the table under Threshold)." if best else "")
+        out.append(f"**No threshold reaches {_pct(th['target'])} precision with this many labels.**{alt} "
+                   "Otherwise: label more rows, or rephrase the question.")
+    s = r.get("stability")
+    if s and s["changed"] > 0.02:
+        out.append(f"**Store answers; don't re-ask.** {_pct(s['changed'])} of answers changed when the same rows "
+                   "were judged again.")
+    b = r.get("batching")
+    if b and b["changed"] > max(0.03, (s or {}).get("changed", 0) * 2):
+        out.append(f"**Judge one row per request.** Sending 20 rows per request changed {_pct(b['changed'])} of answers.")
+    n = r["sample"]["labeled_rows"]
+    if n < 200:
+        out.append(f"This check used {n} labels. About 200 give tighter numbers; Docket's Phase 0 found 100–200 labels "
+                   "capture most of the calibration gain.")
+    return out
+
+
+def render(r):
+    cfg, a, c = r["config"], r["analysis"], r["cost"]
+    L = [f"# Docket check: `{cfg['table']}`", "",
+         f"*Question:* **{cfg['question']}**", "",
+         f"- Text sent: `{', '.join(cfg['text'])}` · labels: "
+         f"`{cfg['label_column'] or cfg['label_file']}`" + (f" (yes = `{cfg['positive']}`)" if cfg["kind"] == "noul" else ""),
+         f"- Backend `{r['backend']['url']}` · model `{r['backend']['model']}` · {r['backend']['batch_size']} row(s) per request",
+         f"- {r['sample']['labeled_rows']} labeled rows sampled from {r['sample']['rows_in_scope']:,} in scope "
+         f"(table: {r['sample']['table_rows']:,} rows) · {r['created_at']} · docket {r['docket_version']}", "",
+         "## Recommendations", ""]
+    L += [f"{i}. {t}" for i, t in enumerate(recommendations(r), 1)]
+    L += ["", "## Agreement with your labels", ""]
+    if cfg["kind"] == "choice":
+        L += ["| measure | value |", "| --- | ---: |",
+              f"| accuracy | {_pct(a['accuracy'])} [{_pct(a['accuracy_ci'][0])}, {_pct(a['accuracy_ci'][1])}] |",
+              f"| macro-F1 | {a['macro_f1']:.3f} |", "",
+              "| option | labeled | answered | recall | precision |", "| --- | ---: | ---: | ---: | ---: |"]
+        L += [f"| {p['option']} | {p['support']} | {p['predicted']} | {_pct(p['recall'])} | {_pct(p['precision'])} |"
+              for p in a["per_class"]]
+        if a["top_confusions"]:
+            L += ["", "Most common disagreements (label → answer): " +
+                  "; ".join(f"{x['label']} → {x['answer']} ({x['count']})" for x in a["top_confusions"])]
+    else:
+        L += ["| measure | value |", "| --- | ---: |",
+              f"| share labeled yes | {_pct(a['prevalence'])} |",
+              f"| ranking quality (AUROC) | {a['auroc']:.3f} [{a['auroc_ci'][0]:.3f}, {a['auroc_ci'][1]:.3f}] |",
+              f"| precision / recall at the default 0.5 | {_pct(a['precision_at_0.5'])} / {_pct(a['recall_at_0.5'])} |"]
+    L += ["", "## Calibration", "",
+          f"Calibration error (ECE): **{a['ece_raw']:.3f}** raw [{a['ece_raw_ci'][0]:.3f}, {a['ece_raw_ci'][1]:.3f}] → "
+          f"**{a['ece_calibrated']:.3f}** after calibration (out-of-fold"
+          + ((f", zeros clamped, then temperature {a['temperature']:.2f}" if a.get("zeros_clamped")
+              else f", temperature {a['temperature']:.2f}") if cfg["kind"] == "choice" else ", Platt scaling") + ").", ""]
+    if cfg["kind"] == "choice" and a.get("label_prob_zero"):
+        L += [f"The backend gave the labeled answer a probability of exactly 0 on {a['label_prob_zero']} rows; "
+              "zeros are clamped before calibrating.", ""]
+    L += ["Raw:", "", _rel_table(a["reliability_raw"]), "", "Calibrated:", "", _rel_table(a["reliability_calibrated"]), ""]
+    th = a["threshold"]
+    L += ["## Threshold", "",
+          f"Thresholds were tested from strictest to loosest (accepting 5 %, 10 %, … of rows, starting at "
+          f"{th.get('min_accept', 20)} rows so the target is provable); the loosest one whose "
+          f"precision is ≥ {_pct(th['target'])} at {100 * (1 - th['alpha']):.0f} % confidence (one-sided Clopper–Pearson) "
+          "is chosen. This assumes the labeled sample is representative of the rows it will be applied to.", "",
+          "| threshold | accepted | coverage | precision | 95 % lower bound |", "| ---: | ---: | ---: | ---: | ---: |"]
+    L += [f"| {t['threshold']:.3f} | {t['accepted']} | {_pct(t['coverage'])} | {_pct(t['precision'])} | {_pct(t['lower_bound'])} |"
+          for t in th["tested"]]
+    if a.get("ladder"):
+        L += ["", "What each precision target allows (each with the same 95 % guarantee):", ""]
+        if cfg["kind"] == "noul":
+            L += ["| precision target | rows auto-labelled yes | real yeses caught (recall) | threshold |",
+                  "| ---: | ---: | ---: | ---: |"]
+            L += [f"| {_pct(l['target'])} | {_pct(l['coverage'])} | {_pct(l.get('recall'))} | {_num(l['threshold'])} |"
+                  for l in a["ladder"]]
+        else:
+            L += ["| precision target | share of rows auto-accepted | threshold |", "| ---: | ---: | ---: |"]
+            L += [f"| {_pct(l['target'])} | {_pct(l['coverage'])} | {_num(l['threshold'])} |" for l in a["ladder"]]
+    s, b = r.get("stability"), r.get("batching")
+    if s or b:
+        L += ["", "## Consistency", "", "| test | rows | answers that changed |", "| --- | ---: | ---: |"]
+        if s:
+            L.append(f"| same request again | {s['rows']} | {_pct(s['changed'])} |")
+        if b:
+            L.append(f"| 20 rows per request instead of 1 | {b['rows']} | {_pct(b['changed'])} |")
+        if b and "accuracy_batched" in b:
+            L += ["", f"On those rows, accuracy with 1 row per request: {_pct(b['accuracy_single'])}; with 20: "
+                      f"{_pct(b['accuracy_batched'])}."]
+    L += ["", "## Cost", "",
+          f"- This check: {c['requests']:,} requests, {c['input_tokens']:,} input tokens, ≈ ${c['usd']:.4f}, {c['seconds']:.0f} s.",
+          f"- {c['tokens_per_row']:.0f} tokens per row → whole table ({r['sample']['table_rows']:,} rows) ≈ "
+          f"${c['projected_usd_table']:.2f}; ≈ ${c['projected_usd_per_million_rows']:.0f} per million rows "
+          "(jev-1.13 list price).", "",
+          "---", "*Generated by `docket check`. The report contains no row text; per-row answers are in `judgments.jsonl` "
+          "next to it, keyed by your primary key.*"]
+    return "\n".join(L) + "\n"

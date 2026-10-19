@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   harness-tests:
-    name: Harness unit tests
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,9 +20,9 @@ jobs:
           cache: pip
           cache-dependency-path: harness/requirements.txt
       - run: pip install -r harness/requirements.txt
-      - run: python -m pytest -q harness/tests
+      - run: python -m pytest -q harness/tests docket/tests
         env:
-          PYTHONPATH: harness
+          PYTHONPATH: harness:.
 
   compose-config:
     name: Docker Compose file is valid

@@ -43,9 +43,10 @@ services:
     working_dir: /work/harness          # `python -m` puts the cwd first on sys.path: run the mounted code, not the image's copy
     volumes:
       - ./harness:/work/harness:ro
+      - ./docket:/work/docket:ro
     environment:
       <<: *bench-env
-      PYTHONPATH: /work/harness
+      PYTHONPATH: /work/harness:/work
       SIM_SIGNAL: ${SIM_SIGNAL:-2.5}
       SIM_NOISE: ${SIM_NOISE:-1.0}
       SIM_TEMPERATURE: ${SIM_TEMPERATURE:-0.5}
@@ -65,7 +66,7 @@ services:
       - ./:/work
     environment:
       <<: *bench-env
-      PYTHONPATH: /work/harness
+      PYTHONPATH: /work/harness:/work
     entrypoint: ["python", "-m", "jevbench.cli"]
     depends_on:
       db:

@@ -7,7 +7,7 @@
 
 **Durable, versioned, calibrated AI decisions for Postgres.** Declare a semantic decision once (*"is this complaint about debt collection?"*). Docket keeps the answer stored as data, versioned, calibrated against your own labels, and honest about its uncertainty, in any Postgres and with any decision model.
 
-> **Status: Phase 0 (validation).** The Docket product is not built yet. This repository contains the design ([REPORT.md](REPORT.md), [ADRs](docs/adr/)) and a working benchmark harness that measured the problem on real data ([findings](docs/phase0/FINDINGS-jev-1.13.md)). Progress is tracked in [issues](https://github.com/ElyasEbrahim/docket/issues) and [milestones](https://github.com/ElyasEbrahim/docket/milestones).
+> **Status: Phase 1 has started.** The first piece of Docket works: [`docket check`](docket/README.md) measures how trustworthy an AI decision is on *your* table. The rest of the product (stored, versioned decisions) is not built yet. The repository also contains the design ([REPORT.md](REPORT.md), [ADRs](docs/adr/)) and the Phase 0 benchmark ([findings](docs/phase0/FINDINGS-jev-1.13.md)). Progress is tracked in [issues](https://github.com/ElyasEbrahim/docket/issues) and [milestones](https://github.com/ElyasEbrahim/docket/milestones).
 
 ## The problem
 
@@ -36,6 +36,18 @@ Model calls now cost roughly **$6–25 per million rows** (depending on text len
 | Scores are coarse | Probabilities come on a 0.01 grid with exact zeros |
 
 Write-up for a general audience: [*Same row, different answer*](docs/notes/2026-10-same-row-different-answer.md). Details, methods and limits: [docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md).
+
+## Try it on your own data: `docket check`
+
+Point it at a table, the text to send, a question and some labels (an existing column, or a CSV you label by hand). It reports agreement, calibration, a threshold with a stated precision guarantee, consistency and cost. It's read-only, and no row text goes in the report.
+
+```bash
+python -m docket check --table public.tickets --key id --text subject,body \
+  --kind choice --question "Which team should handle this ticket?" \
+  --options billing,technical,security,sales --label-column team --yes
+```
+
+On two years of Kubernetes issues, routing to 10 teams (SIGs) agreed with the human labels **88.8 %** of the time. **90 % of issues could be auto-routed with precision ≥ 90 % guaranteed** at 95 % confidence ([write-up](docs/phase1/kubernetes-triage.md), [report](results/check-k8s-sig/report.md)). Full usage: [docket/README.md](docket/README.md).
 
 ## What Docket will be
 
@@ -77,6 +89,9 @@ More commands (determinism, learning curve, batch context): [harness/README.md](
 | [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/phase0/](docs/phase0/) | Phase 0 findings, status, draft upstream issue |
 | [docs/notes/](docs/notes/) | Public write-ups |
+| [docs/phase1/](docs/phase1/) | Phase 1 results (Kubernetes triage) |
+| [docket/](docket/) | The product: `docket check` (and later the ledger) |
+| [examples/](examples/) | Option files with descriptions for the example checks |
 | [harness/](harness/) | Benchmark harness: `jevbench` CLI, simulated backend, tests |
 | [results/](results/) | Benchmark reports from the runs cited in the findings |
 | `docker-compose.yml`, `Makefile` | The benchmark stack and its commands |

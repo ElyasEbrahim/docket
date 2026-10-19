@@ -47,6 +47,8 @@ docker compose run --rm bench reorder --restore     # back to the original order
 docker compose run --rm bench batchcontext --same <runs> --shuffled <run>   # batch-context comparison
 docker compose run --rm bench run --backend jev --experiments choice_base --batch-size 1 --yes   # one row per request
 docker compose run --rm bench batchsize --batched <runs> --single <run> [--shuffled <run>]   # batch size 1 vs 20
+PYTHONPATH=harness python3 -m jevbench.ghissues      # Kubernetes issues via the GitHub CLI → data/raw/ (host)
+docker compose run --rm bench load-github            # → demo.k8s_issues, a stand-in for a user's table
 ```
 
 ### Real Jev

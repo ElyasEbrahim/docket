@@ -1,0 +1,391 @@
+{
+  "docket_version": "0.0.1",
+  "created_at": "2026-10-19T14:03:21+00:00",
+  "config": {
+    "table": "bench.complaints",
+    "key": "complaint_id",
+    "text": [
+      "narrative"
+    ],
+    "kind": "choice",
+    "question": "Which financial product is this consumer complaint about?",
+    "options": [
+      {
+        "name": "credit reporting"
+      },
+      {
+        "name": "debt collection"
+      },
+      {
+        "name": "mortgage"
+      },
+      {
+        "name": "credit card"
+      },
+      {
+        "name": "checking or savings account"
+      },
+      {
+        "name": "student loan"
+      },
+      {
+        "name": "money transfer or virtual currency"
+      },
+      {
+        "name": "vehicle loan or lease"
+      },
+      {
+        "name": "payday, title, or personal loan"
+      }
+    ],
+    "label_column": "product",
+    "label_file": null,
+    "positive": null,
+    "where": null,
+    "sample": 500,
+    "seed": "1",
+    "backend": "jev",
+    "model": "jev-1.13.0",
+    "batch_size": 1,
+    "repeat": 0,
+    "batch_test": 0,
+    "precision_target": 0.9,
+    "alpha": 0.05,
+    "max_usd": 1.0,
+    "out": "results/check-cfpb-product"
+  },
+  "backend": {
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-1.13.0",
+    "batch_size": 1
+  },
+  "sample": {
+    "labeled_rows": 500,
+    "rows_in_scope": 2000,
+    "table_rows": 2000,
+    "label_counts": {
+      "credit reporting": 297,
+      "debt collection": 64,
+      "checking or savings account": 41,
+      "credit card": 38,
+      "mortgage": 24,
+      "money transfer or virtual currency": 12,
+      "student loan": 10,
+      "payday, title, or personal loan": 7,
+      "vehicle loan or lease": 7
+    }
+  },
+  "analysis": {
+    "n": 500,
+    "accuracy": 0.798,
+    "accuracy_ci": [
+      0.762,
+      0.834
+    ],
+    "macro_f1": 0.733834658478549,
+    "per_class": [
+      {
+        "option": "credit reporting",
+        "support": 297,
+        "predicted": 256,
+        "recall": 0.8080808080808081,
+        "precision": 0.9375
+      },
+      {
+        "option": "debt collection",
+        "support": 64,
+        "predicted": 56,
+        "recall": 0.640625,
+        "precision": 0.7321428571428571
+      },
+      {
+        "option": "mortgage",
+        "support": 24,
+        "predicted": 28,
+        "recall": 1.0,
+        "precision": 0.8571428571428571
+      },
+      {
+        "option": "credit card",
+        "support": 38,
+        "predicted": 77,
+        "recall": 0.9210526315789473,
+        "precision": 0.45454545454545453
+      },
+      {
+        "option": "checking or savings account",
+        "support": 41,
+        "predicted": 46,
+        "recall": 0.8292682926829268,
+        "precision": 0.7391304347826086
+      },
+      {
+        "option": "student loan",
+        "support": 10,
+        "predicted": 12,
+        "recall": 0.8,
+        "precision": 0.6666666666666666
+      },
+      {
+        "option": "money transfer or virtual currency",
+        "support": 12,
+        "predicted": 7,
+        "recall": 0.5,
+        "precision": 0.8571428571428571
+      },
+      {
+        "option": "vehicle loan or lease",
+        "support": 7,
+        "predicted": 7,
+        "recall": 0.7142857142857143,
+        "precision": 0.7142857142857143
+      },
+      {
+        "option": "payday, title, or personal loan",
+        "support": 7,
+        "predicted": 11,
+        "recall": 0.8571428571428571,
+        "precision": 0.5454545454545454
+      }
+    ],
+    "top_confusions": [
+      {
+        "label": "credit reporting",
+        "answer": "credit card",
+        "count": 33
+      },
+      {
+        "label": "credit reporting",
+        "answer": "debt collection",
+        "count": 12
+      },
+      {
+        "label": "debt collection",
+        "answer": "credit reporting",
+        "count": 12
+      },
+      {
+        "label": "money transfer or virtual currency",
+        "answer": "checking or savings account",
+        "count": 5
+      },
+      {
+        "label": "checking or savings account",
+        "answer": "credit card",
+        "count": 5
+      }
+    ],
+    "ece_raw": 0.13310505050505056,
+    "ece_raw_ci": [
+      0.10775958585858596,
+      0.17089694949494943
+    ],
+    "temperature": 1.253731851098541,
+    "ece_calibrated": 0.037116462610406464,
+    "reliability_raw": [
+      [
+        0.0,
+        0.1,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.1,
+        0.2,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.2,
+        0.30000000000000004,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.30000000000000004,
+        0.4,
+        1,
+        0.33,
+        1.0
+      ],
+      [
+        0.4,
+        0.5,
+        7,
+        0.4471428571428572,
+        0.5714285714285714
+      ],
+      [
+        0.5,
+        0.6000000000000001,
+        16,
+        0.5537500000000001,
+        0.5625
+      ],
+      [
+        0.6000000000000001,
+        0.7000000000000001,
+        33,
+        0.6474808692990511,
+        0.5454545454545454
+      ],
+      [
+        0.7000000000000001,
+        0.8,
+        21,
+        0.7590476190476191,
+        0.5714285714285714
+      ],
+      [
+        0.8,
+        0.9,
+        44,
+        0.8509090909090912,
+        0.6136363636363636
+      ],
+      [
+        0.9,
+        1.0,
+        378,
+        0.989839666506333,
+        0.8677248677248677
+      ]
+    ],
+    "reliability_calibrated": [
+      [
+        0.0,
+        0.1,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.1,
+        0.2,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.2,
+        0.30000000000000004,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.30000000000000004,
+        0.4,
+        4,
+        0.3465299912279033,
+        0.5
+      ],
+      [
+        0.4,
+        0.5,
+        14,
+        0.46007172627556703,
+        0.5
+      ],
+      [
+        0.5,
+        0.6000000000000001,
+        39,
+        0.5491426943099136,
+        0.5641025641025641
+      ],
+      [
+        0.6000000000000001,
+        0.7000000000000001,
+        35,
+        0.6636468346799045,
+        0.6571428571428571
+      ],
+      [
+        0.7000000000000001,
+        0.8,
+        37,
+        0.7535663958755567,
+        0.5405405405405406
+      ],
+      [
+        0.8,
+        0.9,
+        324,
+        0.8805483940252545,
+        0.8672839506172839
+      ],
+      [
+        0.9,
+        1.0,
+        47,
+        0.9000065408107938,
+        0.9361702127659575
+      ]
+    ],
+    "exact_zeros": 3566,
+    "label_prob_zero": 30,
+    "threshold": {
+      "target": 0.9,
+      "alpha": 0.05,
+      "min_accept": 58,
+      "chosen": null,
+      "tested": [
+        {
+          "threshold": 0.8969880752234831,
+          "accepted": 101,
+          "coverage": 0.202,
+          "precision": 0.900990099009901,
+          "lower_bound": 0.8378454281268217
+        }
+      ]
+    },
+    "ladder": [
+      {
+        "target": 0.95,
+        "threshold": null,
+        "coverage": 0.0
+      },
+      {
+        "target": 0.9,
+        "threshold": null,
+        "coverage": 0.0
+      },
+      {
+        "target": 0.85,
+        "threshold": null,
+        "coverage": 0.0
+      },
+      {
+        "target": 0.8,
+        "threshold": 0.6730669053024371,
+        "coverage": 0.85
+      },
+      {
+        "target": 0.75,
+        "threshold": 0.30498001364751404,
+        "coverage": 1.0
+      },
+      {
+        "target": 0.7,
+        "threshold": 0.30498001364751404,
+        "coverage": 1.0
+      }
+    ],
+    "zeros_clamped": true
+  },
+  "stability": null,
+  "batching": null,
+  "cost": {
+    "requests": 500,
+    "input_tokens": 284396,
+    "usd": 0.011944632000000002,
+    "tokens_per_row": 568.792,
+    "projected_usd_table": 0.04777852800000001,
+    "projected_usd_per_million_rows": 23.889264000000004,
+    "seconds": 10.688778400421143
+  }
+}

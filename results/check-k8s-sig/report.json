@@ -1,0 +1,539 @@
+{
+  "docket_version": "0.0.1",
+  "created_at": "2026-10-19T14:05:39+00:00",
+  "config": {
+    "table": "demo.k8s_issues",
+    "key": "number",
+    "text": [
+      "title",
+      "body"
+    ],
+    "kind": "choice",
+    "question": "Which Kubernetes SIG (special interest group) should handle this issue?",
+    "options": [
+      {
+        "name": "node",
+        "description": "kubelet, container runtime (CRI), pod lifecycle and resources on a node"
+      },
+      {
+        "name": "api-machinery",
+        "description": "API server, etcd storage layer, CRDs, admission webhooks, client libraries, garbage collection"
+      },
+      {
+        "name": "scheduling",
+        "description": "kube-scheduler, pod placement, preemption, scheduling plugins"
+      },
+      {
+        "name": "network",
+        "description": "Services, kube-proxy, DNS, Ingress and Gateway, network policies"
+      },
+      {
+        "name": "storage",
+        "description": "volumes, PersistentVolumes, CSI drivers, storage classes"
+      },
+      {
+        "name": "apps",
+        "description": "workload controllers: Deployments, StatefulSets, DaemonSets, Jobs, CronJobs"
+      },
+      {
+        "name": "auth",
+        "description": "authentication, authorization and RBAC, service accounts, certificates"
+      },
+      {
+        "name": "cli",
+        "description": "kubectl and kustomize"
+      },
+      {
+        "name": "testing",
+        "description": "test infrastructure and the e2e test framework"
+      },
+      {
+        "name": "instrumentation",
+        "description": "metrics, logging, events, tracing"
+      }
+    ],
+    "label_column": "sig",
+    "label_file": null,
+    "positive": null,
+    "where": null,
+    "sample": 500,
+    "seed": "1",
+    "backend": "jev",
+    "model": "jev-1.13.0",
+    "batch_size": 1,
+    "repeat": 100,
+    "batch_test": 100,
+    "precision_target": 0.9,
+    "alpha": 0.05,
+    "max_usd": 1.0,
+    "out": "results/check-k8s-sig"
+  },
+  "backend": {
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-1.13.0",
+    "batch_size": 1
+  },
+  "sample": {
+    "labeled_rows": 500,
+    "rows_in_scope": 2550,
+    "table_rows": 3884,
+    "label_counts": {
+      "node": 167,
+      "api-machinery": 114,
+      "scheduling": 64,
+      "network": 43,
+      "storage": 34,
+      "apps": 23,
+      "auth": 17,
+      "cli": 15,
+      "instrumentation": 14,
+      "testing": 9
+    }
+  },
+  "analysis": {
+    "n": 500,
+    "accuracy": 0.888,
+    "accuracy_ci": [
+      0.86,
+      0.914
+    ],
+    "macro_f1": 0.8316134782886895,
+    "per_class": [
+      {
+        "option": "node",
+        "support": 167,
+        "predicted": 162,
+        "recall": 0.9101796407185628,
+        "precision": 0.9382716049382716
+      },
+      {
+        "option": "api-machinery",
+        "support": 114,
+        "predicted": 120,
+        "recall": 0.9210526315789473,
+        "precision": 0.875
+      },
+      {
+        "option": "scheduling",
+        "support": 64,
+        "predicted": 56,
+        "recall": 0.859375,
+        "precision": 0.9821428571428571
+      },
+      {
+        "option": "network",
+        "support": 43,
+        "predicted": 42,
+        "recall": 0.9069767441860465,
+        "precision": 0.9285714285714286
+      },
+      {
+        "option": "storage",
+        "support": 34,
+        "predicted": 33,
+        "recall": 0.9117647058823529,
+        "precision": 0.9393939393939394
+      },
+      {
+        "option": "apps",
+        "support": 23,
+        "predicted": 19,
+        "recall": 0.6956521739130435,
+        "precision": 0.8421052631578947
+      },
+      {
+        "option": "auth",
+        "support": 17,
+        "predicted": 14,
+        "recall": 0.5882352941176471,
+        "precision": 0.7142857142857143
+      },
+      {
+        "option": "cli",
+        "support": 15,
+        "predicted": 17,
+        "recall": 1.0,
+        "precision": 0.8823529411764706
+      },
+      {
+        "option": "testing",
+        "support": 9,
+        "predicted": 20,
+        "recall": 0.8888888888888888,
+        "precision": 0.4
+      },
+      {
+        "option": "instrumentation",
+        "support": 14,
+        "predicted": 17,
+        "recall": 0.9285714285714286,
+        "precision": 0.7647058823529411
+      }
+    ],
+    "top_confusions": [
+      {
+        "label": "node",
+        "answer": "api-machinery",
+        "count": 5
+      },
+      {
+        "label": "node",
+        "answer": "testing",
+        "count": 5
+      },
+      {
+        "label": "auth",
+        "answer": "node",
+        "count": 4
+      },
+      {
+        "label": "apps",
+        "answer": "testing",
+        "count": 3
+      },
+      {
+        "label": "api-machinery",
+        "answer": "auth",
+        "count": 3
+      }
+    ],
+    "ece_raw": 0.07333131313131316,
+    "ece_raw_ci": [
+      0.05288731313131318,
+      0.09818834343434348
+    ],
+    "temperature": 1.000862983997161,
+    "ece_calibrated": 0.02924469044569747,
+    "reliability_raw": [
+      [
+        0.0,
+        0.1,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.1,
+        0.2,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.2,
+        0.30000000000000004,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.30000000000000004,
+        0.4,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.4,
+        0.5,
+        5,
+        0.45599999999999996,
+        0.8
+      ],
+      [
+        0.5,
+        0.6000000000000001,
+        25,
+        0.5402262626262626,
+        0.6
+      ],
+      [
+        0.6000000000000001,
+        0.7000000000000001,
+        15,
+        0.6586666666666667,
+        0.3333333333333333
+      ],
+      [
+        0.7000000000000001,
+        0.8,
+        16,
+        0.7675,
+        0.875
+      ],
+      [
+        0.8,
+        0.9,
+        35,
+        0.8451428571428573,
+        0.7714285714285715
+      ],
+      [
+        0.9,
+        1.0,
+        404,
+        0.9896534653465348,
+        0.9381188118811881
+      ]
+    ],
+    "reliability_calibrated": [
+      [
+        0.0,
+        0.1,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.1,
+        0.2,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.2,
+        0.30000000000000004,
+        0,
+        NaN,
+        NaN
+      ],
+      [
+        0.30000000000000004,
+        0.4,
+        1,
+        0.3923771353595988,
+        1.0
+      ],
+      [
+        0.4,
+        0.5,
+        10,
+        0.47429832617953754,
+        0.8
+      ],
+      [
+        0.5,
+        0.6000000000000001,
+        21,
+        0.5369958171633394,
+        0.47619047619047616
+      ],
+      [
+        0.6000000000000001,
+        0.7000000000000001,
+        14,
+        0.6460800954414333,
+        0.42857142857142855
+      ],
+      [
+        0.7000000000000001,
+        0.8,
+        27,
+        0.7580924394096434,
+        0.7777777777777778
+      ],
+      [
+        0.8,
+        0.9,
+        43,
+        0.8560038459645675,
+        0.7674418604651163
+      ],
+      [
+        0.9,
+        1.0,
+        384,
+        0.9515681313609935,
+        0.9505208333333334
+      ]
+    ],
+    "exact_zeros": 4165,
+    "label_prob_zero": 7,
+    "threshold": {
+      "target": 0.9,
+      "alpha": 0.05,
+      "min_accept": 58,
+      "chosen": {
+        "threshold": 0.7327579288182021,
+        "accepted": 450,
+        "coverage": 0.9,
+        "precision": 0.9244444444444444,
+        "lower_bound": 0.9006813185503956
+      },
+      "tested": [
+        {
+          "threshold": 0.9591416282073417,
+          "accepted": 117,
+          "coverage": 0.234,
+          "precision": 0.9743589743589743,
+          "lower_bound": 0.9350649852549254
+        },
+        {
+          "threshold": 0.9591416282073417,
+          "accepted": 117,
+          "coverage": 0.234,
+          "precision": 0.9743589743589743,
+          "lower_bound": 0.9350649852549254
+        },
+        {
+          "threshold": 0.9567491507890958,
+          "accepted": 178,
+          "coverage": 0.356,
+          "precision": 0.9719101123595506,
+          "lower_bound": 0.9418488910338279
+        },
+        {
+          "threshold": 0.9567491507890958,
+          "accepted": 178,
+          "coverage": 0.356,
+          "precision": 0.9719101123595506,
+          "lower_bound": 0.9418488910338279
+        },
+        {
+          "threshold": 0.9567491507890958,
+          "accepted": 178,
+          "coverage": 0.356,
+          "precision": 0.9719101123595506,
+          "lower_bound": 0.9418488910338279
+        },
+        {
+          "threshold": 0.9523417062911129,
+          "accepted": 241,
+          "coverage": 0.482,
+          "precision": 0.9626556016597511,
+          "lower_bound": 0.93573896198228
+        },
+        {
+          "threshold": 0.9523417062911129,
+          "accepted": 241,
+          "coverage": 0.482,
+          "precision": 0.9626556016597511,
+          "lower_bound": 0.93573896198228
+        },
+        {
+          "threshold": 0.9517194581880886,
+          "accepted": 257,
+          "coverage": 0.514,
+          "precision": 0.9610894941634242,
+          "lower_bound": 0.9348930056071161
+        },
+        {
+          "threshold": 0.9480005948161844,
+          "accepted": 316,
+          "coverage": 0.632,
+          "precision": 0.9620253164556962,
+          "lower_bound": 0.9391980730383994
+        },
+        {
+          "threshold": 0.9480005948161844,
+          "accepted": 316,
+          "coverage": 0.632,
+          "precision": 0.9620253164556962,
+          "lower_bound": 0.9391980730383994
+        },
+        {
+          "threshold": 0.946970613865777,
+          "accepted": 326,
+          "coverage": 0.652,
+          "precision": 0.9601226993865031,
+          "lower_bound": 0.9373461842533963
+        },
+        {
+          "threshold": 0.9342012150360977,
+          "accepted": 350,
+          "coverage": 0.7,
+          "precision": 0.9571428571428572,
+          "lower_bound": 0.9347732548430059
+        },
+        {
+          "threshold": 0.9108321622713343,
+          "accepted": 375,
+          "coverage": 0.75,
+          "precision": 0.9493333333333334,
+          "lower_bound": 0.9265390419728615
+        },
+        {
+          "threshold": 0.8818748506765713,
+          "accepted": 400,
+          "coverage": 0.8,
+          "precision": 0.94,
+          "lower_bound": 0.9166539212787446
+        },
+        {
+          "threshold": 0.8113549047724037,
+          "accepted": 425,
+          "coverage": 0.85,
+          "precision": 0.9317647058823529,
+          "lower_bound": 0.9081255006558089
+        },
+        {
+          "threshold": 0.7327579288182021,
+          "accepted": 450,
+          "coverage": 0.9,
+          "precision": 0.9244444444444444,
+          "lower_bound": 0.9006813185503956
+        },
+        {
+          "threshold": 0.5397196700182514,
+          "accepted": 475,
+          "coverage": 0.95,
+          "precision": 0.8989473684210526,
+          "lower_bound": 0.873259483231926
+        }
+      ]
+    },
+    "ladder": [
+      {
+        "target": 0.95,
+        "threshold": null,
+        "coverage": 0.0
+      },
+      {
+        "target": 0.9,
+        "threshold": 0.7327579288182021,
+        "coverage": 0.9
+      },
+      {
+        "target": 0.85,
+        "threshold": 0.3923771353595988,
+        "coverage": 1.0
+      },
+      {
+        "target": 0.8,
+        "threshold": 0.3923771353595988,
+        "coverage": 1.0
+      },
+      {
+        "target": 0.75,
+        "threshold": 0.3923771353595988,
+        "coverage": 1.0
+      },
+      {
+        "target": 0.7,
+        "threshold": 0.3923771353595988,
+        "coverage": 1.0
+      }
+    ],
+    "zeros_clamped": true
+  },
+  "stability": {
+    "rows": 100,
+    "changed": 0.01
+  },
+  "batching": {
+    "rows": 100,
+    "changed": 0.15,
+    "accuracy_single": 0.88,
+    "accuracy_batched": 0.8
+  },
+  "cost": {
+    "requests": 605,
+    "input_tokens": 695045,
+    "usd": 0.029191890000000005,
+    "tokens_per_row": 1019.174,
+    "projected_usd_table": 0.16625581627200003,
+    "projected_usd_per_million_rows": 42.805308000000004,
+    "seconds": 17.548314571380615
+  }
+}
