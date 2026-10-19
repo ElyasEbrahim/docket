@@ -1,0 +1,28 @@
+name: Research / measurement
+description: A question to answer with an experiment (benchmark run, analysis of stored results).
+labels: ["research"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do we want to know, in one or two sentences?
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Method
+      description: Data, experiment, comparison baseline (e.g. run-to-run noise), and which `jevbench` commands.
+    validations:
+      required: true
+  - type: input
+    id: cost
+    attributes:
+      label: Estimated API cost
+      placeholder: "≈ $0.03, or free (stored results only)"
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision it informs
+      description: Which design choice, ADR or roadmap item depends on the answer?

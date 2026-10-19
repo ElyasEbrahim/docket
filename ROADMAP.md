@@ -10,7 +10,7 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 - [x] CFPB narrative sample: CFPB stopped publishing narratives on 2026-08-14, so sample from the CC0 mirror (`make fetch load`; 3,000 rows, 2015–2024, revision pinned in the manifest)
 - [x] Harness: `choice_base`, two cyclic shifts, `choice_other` (label-set drift), two noul tasks; raw answers stored in `bench.results`
 - [x] Metrics: ECE (equal-width and equal-mass) with bootstrap CIs, Brier/NLL, AUROC, cross-fitted temperature, isotonic and Platt recalibration, order-flip rate, first-position lift, drift and auto-accept set changes
-- [x] Harness validated against a simulated backend with planted flaws (14 tests, plus a 2,000-row Docker run that recovers T ≈ 1/0.5)
+- [x] Harness validated against a simulated backend with planted flaws (16 tests, plus a 2,000-row Docker run that recovers T ≈ 1/0.5)
 - [x] Found: pg-jev's session cache ignores `jev.model` / `jev.api_url` (2,000/2,000 stale answers after switching backend); draft issue in [docs/phase0/upstream-issue-cache-key.md](docs/phase0/upstream-issue-cache-key.md)
 - [x] Real run on jev-1.13.0 (`jev-20261017-122314`, ≈ $0.146): see [docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md)
 - [ ] Optional second backend: stuntd / laya-server via `--api-url`; OpenAI Decisions needs an adapter (different contract)

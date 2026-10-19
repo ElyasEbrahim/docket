@@ -1,0 +1,28 @@
+name: Task
+description: A piece of work on the design, the harness, docs or outreach.
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: What needs to be done, and why.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: A checkable end state.
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - "Phase 0: Validate"
+        - "Phase 1: Ledger core"
+        - "Phase 2: Trust layer"
+        - "Phase 3: Multi-backend + drift"
+        - "Phase 4: Ship v0.1"
+        - "Not phase-specific"

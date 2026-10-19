@@ -1,0 +1,27 @@
+name: Bug
+description: Something in the harness or docs is broken or wrong.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      description: The exact commands (e.g. `make bench BACKEND=sim`). Never paste API keys.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "macOS 15 / Docker 29 / commit 3102c9e"

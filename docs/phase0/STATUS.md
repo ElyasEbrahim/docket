@@ -9,7 +9,7 @@
 | Upstream mock | pg-jev's own `test/mock_api.py` served to the stack; README queries work (`make smoke`) |
 | Data | CFPB stopped publishing narratives on **14 Aug 2026**, so the live API and bulk CSV no longer carry them. 3,000-row uniform sample (2015-03 → 2024-02) from the CC0 mirror, revision `088cc730…` pinned in `data/raw/cfpb_sample.jsonl.manifest.json`. 2,000 rows loaded. |
 | Harness | `jevbench` CLI: 6 experiments (product choice, 2 option orderings, label-set drift, 2 yes/no tasks), raw answers in `bench.results`, Markdown + JSON report |
-| Validation | Simulated backend that is calibrated by construction, with planted over-confidence and first-option bias. 14 unit tests. Docker run on 2,000 rows: [`results/sim-20261017-121347/report.md`](../../results/sim-20261017-121347/report.md). It recovers the planted temperature (fitted T = 2.13 vs. planted 1/0.5), ECE drops 0.059 → 0.013 after recalibration, and the first-option lift is positive with a CI that excludes 0. |
+| Validation | Simulated backend that is calibrated by construction, with planted over-confidence and first-option bias. 16 unit tests. Docker run on 2,000 rows: [`results/sim-20261017-121347/report.md`](../../results/sim-20261017-121347/report.md). It recovers the planted temperature (fitted T = 1.99 vs. planted 1/0.5), ECE drops 0.059 → 0.012 after recalibration, and the first-option lift is positive with a CI that excludes 0. |
 
 ## Findings from building the harness
 

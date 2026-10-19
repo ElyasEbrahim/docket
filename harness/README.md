@@ -13,7 +13,7 @@ Measures how calibrated, order-sensitive and label-set-sensitive a decision back
 
 ## Data
 
-CFPB stopped publishing complaint narratives on **14 Aug 2026**: the live API and the bulk CSV no longer carry them. Narratives published before that were CC0. The harness samples them from the CC0 Hugging Face mirror [`BEE-spoke-data/consumer-finance-complaints`](https://huggingface.co/datasets/BEE-spoke-data/consumer-finance-complaints) (config `has-text`, 1.69M complaints, 2015-03 → 2024-02) through the datasets-server API, and records the dataset revision in `data/raw/*.manifest.json`.
+CFPB stopped publishing complaint narratives on **14 Aug 2026**: the live API and the bulk CSV no longer carry them. Narratives published before that were CC0. The harness samples them from the CC0 Hugging Face mirror [`BEE-spoke-data/consumer-finance-complaints`](https://huggingface.co/datasets/BEE-spoke-data/consumer-finance-complaints) (config `has-text`, 1.69M complaints, 2015-03 → 2024-02). By default `make fetch` downloads one parquet shard (~300 MB, cached in `data/raw/hf/`) and keeps a uniform random sample. `--source api` uses the datasets-server rows API instead, which needs no download but is rate-limited without `HF_TOKEN`. The dataset revision, seed and settings are recorded in `data/raw/*.manifest.json`.
 
 Ground truth is the consumer-selected Product and Issue, mapped to 9 stable product labels (`harness/jevbench/tasks.py`). Consumers sometimes pick the wrong product, so agreement is a **lower bound** on fidelity to the narrative.
 
@@ -49,8 +49,9 @@ docker compose run --rm bench batchcontext --same <runs> --shuffled <run>   # ba
 
 ### Real Jev
 
+Put the key in `.env` (copy `.env.example`; `.env` is gitignored and docker compose reads it), or export `TYPESAFE_API_KEY` in the shell that runs `make`.
+
 ```bash
-export TYPESAFE_API_KEY=...        # never committed; passed to the bench container only
 make bench BACKEND=jev             # prints the estimated spend and refuses without --yes
 make bench BACKEND=jev ARGS=--yes  # 2,000 rows × 6 experiments ≈ $0.2–0.3 at list price; hard cap --max-usd 1.0
 ```

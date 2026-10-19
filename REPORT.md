@@ -1,7 +1,7 @@
 # Project Report: What to Build on Top of pg-jev
 
 **Prepared:** 17 October 2026
-**Inputs:** the pg-jev repository ([realZachi/pg-jev](https://github.com/realZachi/pg-jev), v0.2.1, read in full), the article *"不用向量索引，Postgres 也能做语义过滤：pg-jev 上手"* (winkrun, 4 Oct 2026, `pg&jev.pdf` in this folder), and a review of current work as of mid-October 2026 (vendor docs, arXiv preprints from 2025–2026, competing products). Sources are listed at the end.
+**Inputs:** the pg-jev repository ([realZachi/pg-jev](https://github.com/realZachi/pg-jev), v0.2.1, read in full), the article *"不用向量索引，Postgres 也能做语义过滤：pg-jev 上手"* (winkrun, 4 Oct 2026; not redistributed in this repository), and a review of current work as of mid-October 2026 (vendor docs, arXiv preprints from 2025–2026, competing products). Sources are listed at the end.
 
 ---
 
@@ -297,7 +297,7 @@ Assumes ~20 h/week. Full-time, divide by about 2. The detailed checklist is in [
 
 **Primary inputs**
 - [realZachi/pg-jev](https://github.com/realZachi/pg-jev): README, CHANGELOG, AGENTS.md, `sql/jev--0.2.1.sql`, `test/mock_api.py`, `.agents/skills/pgjev/references/*`
-- winkrun, *不用向量索引，Postgres 也能做语义过滤：pg-jev 上手*, 4 Oct 2026 (`pg&jev.pdf`)
+- winkrun, *不用向量索引，Postgres 也能做语义过滤：pg-jev 上手*, 4 Oct 2026 (WeChat article; not redistributed here)
 - [pgjev.com docs](https://pgjev.com/docs.md), [Where it runs](https://pgjev.com/docs/getting-started/where-it-runs.md)
 
 **Decision models and backends**
