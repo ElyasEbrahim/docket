@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pgdocket"
+dynamic = ["version"]
+description = "Durable, versioned, calibrated AI decisions for Postgres"
+readme = "pgdocket/README.md"
+license = {text = "Apache-2.0"}
+authors = [{name = "ElyasEbrahim"}]
+requires-python = ">=3.10"
+dependencies = ["psycopg[binary]>=3.2", "numpy>=1.24"]
+keywords = ["postgresql", "llm", "calibration", "classification", "ai-evaluation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/ElyasEbrahim/pgdocket"
+Issues = "https://github.com/ElyasEbrahim/pgdocket/issues"
+Changelog = "https://github.com/ElyasEbrahim/pgdocket/blob/master/CHANGELOG.md"
+
+[project.scripts]
+pgdocket = "pgdocket.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "pgdocket.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["pgdocket*"]
+exclude = ["pgdocket.tests*"]
+
+[tool.setuptools.package-data]
+pgdocket = ["sql/*.sql"]

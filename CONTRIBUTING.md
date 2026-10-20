@@ -1,10 +1,10 @@
 # Contributing
 
-Docket is a single-maintainer project. **Issues, questions and ideas are welcome. Pull requests are not accepted for now**, so please open an issue instead.
+pgdocket is a single-maintainer project. **Issues, questions and ideas are welcome. Pull requests are not accepted for now**, so please open an issue instead.
 
 ## How work is tracked
 
-- Every change starts from an [issue](https://github.com/ElyasEbrahim/docket/issues), grouped into [milestones](https://github.com/ElyasEbrahim/docket/milestones) that match the phases in [ROADMAP.md](ROADMAP.md).
+- Every change starts from an [issue](https://github.com/ElyasEbrahim/pgdocket/issues), grouped into [milestones](https://github.com/ElyasEbrahim/pgdocket/milestones) that match the phases in [ROADMAP.md](ROADMAP.md).
 - Commits reference their issue: `Refs #12` while in progress, `Closes #12` in the commit that finishes it (GitHub then closes the issue and links it to the exact change).
 - Notable changes go into [CHANGELOG.md](CHANGELOG.md) under the date.
 - Labels: `phase-0`, `phase-1`, `research` (measurements), `upstream` (contributions to pg-jev and others), `outreach` (users and community), `bug`.

@@ -19,4 +19,4 @@ pg-jev runs inside the database as a `plpython3u` function. That requires superu
 - Runs on any Postgres 14+ that allows triggers, including managed hosts.
 - Judgments are eventually consistent: a new row is `pending` for seconds, not judged inside the inserting transaction.
 - Operators run one more process. This is mitigated by a single container and a health view (`docket.worker_status`).
-- No planner integration. Docket does not try to replace pg-jev's ad-hoc predicates; it handles the production side.
+- No planner integration. pgdocket does not try to replace pg-jev's ad-hoc predicates; it handles the production side.

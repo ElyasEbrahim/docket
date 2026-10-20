@@ -15,7 +15,7 @@ Ground truth is what the consumer selected on the CFPB form (product, issue). It
 
 - Every probability is a multiple of 0.01. 12,104 of the 18,000 option probabilities are exactly 0, and for **54 rows (2.7 %) the consumer's label gets exactly 0**.
 - Those 54 rows alone contribute ≈ 58 % of the log-loss, and the worst 5 % of rows contribute 66 %. Naive temperature scaling therefore fits **T ≈ 4** and makes calibration *worse* (ECE 0.167). Flooring zeros at half the grid step (0.005) before fitting fixes it.
-- This matches the "resolution floor" bound that Rafe & Das (arXiv 2609.24052) describe for models that report on a discrete grid. **Design consequence for Docket:** default to isotonic/histogram calibration, and never fit NLL-based calibrators on raw Jev output.
+- This matches the "resolution floor" bound that Rafe & Das (arXiv 2609.24052) describe for models that report on a discrete grid. **Design consequence for pgdocket:** default to isotonic/histogram calibration, and never fit NLL-based calibrators on raw Jev output.
 - The `confidence` field tracks the maximum probability almost perfectly (r ≈ 1.00, max difference 0.09), so it adds little information.
 
 ## 3. Yes/no questions: good ranking, raw probabilities not usable as probabilities
@@ -46,7 +46,7 @@ Appending "other financial product or service" (nothing in the sample has that l
 - **5.8 %** of top-1 answers change. **2.5 %** move to "other", and all of those are wrong, since no row has that label. Accuracy goes from 77.0 % to 76.2 %.
 - The other **3.3 %** switch between the original nine classes. Two identical runs differ by 2.9–3.8 % (§7), so that part is **indistinguishable from run-to-run noise**, and I can't attribute it to the label change. *(The first draft of this note said otherwise. The repeats corrected it.)*
 - At τ = 0.7 the auto-accepted set has Jaccard 0.92 with the original; identical repeats give 0.94–0.95. The label change adds a little churn beyond the noise, and the threshold that keeps the same volume moves to ≈ 0.68.
-- **Design consequence:** a label-set change still needs a new version and a shadow diff, because a catch-all option visibly takes answers. But any diff has to be read against a run-to-run noise baseline. Docket should measure that baseline by re-judging a sample, and report it next to every version diff.
+- **Design consequence:** a label-set change still needs a new version and a shadow diff, because a catch-all option visibly takes answers. But any diff has to be read against a run-to-run noise baseline. pgdocket should measure that baseline by re-judging a sample, and report it next to every version diff.
 
 ## 6. Operational notes
 
@@ -87,7 +87,7 @@ Fit the calibrator on *n* random labeled rows and score ECE on 1,000 other rows,
 - **About 100 labels already remove most of the miscalibration**: 80–85 % for the yes/no questions (debt collection with only ~12 positive examples among them) and about 45 % for the 9-way choice.
 - **One-parameter calibrators win at small budgets.** Floored temperature and Platt beat isotonic at every budget up to 500, and are still level or better at 1,000 for two of the three tasks. Isotonic only pulls ahead at 1,000 on the weakest-ranking task. This updates ADR 0003: the default should be parametric, with isotonic as an option once ≥ 1,000 labels exist.
 - **Diminishing returns after 200–500 labels.** Debt collection reaches the noise floor around 1,000. "Incorrect report" plateaus around 0.045, above its 0.029 floor, because its scores rank less well (AUROC 0.75), so no monotone map can make it perfect.
-- **Review-budget rule of thumb for Docket v0.1:** ask for 200 labels per decision to start, and offer 500 for tighter guarantees. A few hours of review per decision is a reasonable request.
+- **Review-budget rule of thumb for pgdocket v0.1:** ask for 200 labels per decision to start, and offer 500 for tighter guarantees. A few hours of review per decision is a reasonable request.
 
 ## 9. A row's answer depends on which rows it is batched with
 
@@ -106,7 +106,7 @@ Full table: [`results/jev-20261017-122314/batch_context_choice_base.md`](../../r
 - **It looks like leakage between rows.** On the 267 rows that flipped, the new answer matches what the model usually says about one of the *new* neighbours 92.5 % of the time, against 82.8 % for the old neighbours (88.8 % vs 74.3 % excluding "credit reporting"). Flips also cluster on rows that sat in the last slots of their original batch: 23–30 % at positions 16–18, against 6–9 % at positions 0–2. No clear pattern shows by new position, so the mechanism isn't settled.
 - **Flipped rows are hard rows.** On them, the same-batch answer was correct 49.8 % of the time and the shuffled answer 39.0 %.
 - pg-jev's README reports batches of 1–20 as 100 % correct on conditions over structured columns. On free-text narratives, batch context clearly matters.
-- **Design consequence for Docket:** a judgment is not a function of the row alone. Incremental judging (new rows batched together) and a backfill would disagree on about 1 row in 7. Docket must either judge rows singly or record batch composition in the ledger. §10 measures the first option.
+- **Design consequence for pgdocket:** a judgment is not a function of the row alone. Incremental judging (new rows batched together) and a backfill would disagree on about 1 row in 7. pgdocket must either judge rows singly or record batch composition in the ledger. §10 measures the first option.
 
 ## 10. Judging rows one at a time is more accurate
 
@@ -129,8 +129,8 @@ Full table: [`results/jev-20261017-122314/batch_size_choice_base.md`](../../resu
 - **On the 267 rows that flipped under re-batching**, single-row answers are right 62.5 % of the time, against 49.8 % (original batches) and 39.0 % (shuffled batches).
 - **Single-row answers differ from batched ones on 14.1–14.4 % of rows**, against 2.6–3.8 % between batched runs. That's consistent with batching itself changing about 1 answer in 7.
 - **Calibration needs the right method.** Raw single-row scores are more over-confident (ECE 0.126), with more zeros on the labeled class. Floored temperature scaling brings them to 0.032, the same as batched. Isotonic does worse (0.056), because confidences pile up at 1.0. This supports the parametric default in ADR 0003.
-- **Cost:** 1.8× the tokens. About $24 per million rows, not the $15 estimated from pg-jev's short-row numbers, because these narratives are long. Still small. The wall-clock time is a consequence of pg-jev's concurrency limit (32 requests in flight), not of the model; Docket's background worker can run more in parallel.
-- **Design consequence for Docket:** judge one row per request by default (ADR 0002). It removes the batch dependence, is more accurate, and costs little. Not yet measured: run-to-run stability *at* batch size 1, which needs a second run (≈ $0.05).
+- **Cost:** 1.8× the tokens. About $24 per million rows, not the $15 estimated from pg-jev's short-row numbers, because these narratives are long. Still small. The wall-clock time is a consequence of pg-jev's concurrency limit (32 requests in flight), not of the model; pgdocket's background worker can run more in parallel.
+- **Design consequence for pgdocket:** judge one row per request by default (ADR 0002). It removes the batch dependence, is more accurate, and costs little. Not yet measured: run-to-run stability *at* batch size 1, which needs a second run (≈ $0.05).
 - **For pg-jev:** its README reports batches of 1–20 as 100 % correct on conditions over structured columns. On free-text narratives, 20-row batches cost 2.4 pp accuracy and 0.05 macro-F1. This is worth sharing upstream along with #6.
 
 ## Limits of this note

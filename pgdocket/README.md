@@ -1,13 +1,13 @@
-# Docket
+# pgdocket
 
 Two pieces work today:
 
-- **[`docket check`](#docket-check)**: how trustworthy is an AI decision on your table? Read-only.
+- **[`pgdocket check`](#docket-check)**: how trustworthy is an AI decision on your table? Read-only.
 - **[The ledger](#the-ledger)**: decisions stored in Postgres and kept current as rows change.
 
-# `docket check`
+# `pgdocket check`
 
-**How trustworthy is an AI decision on your table?** Point `docket check` at a Postgres table, the text column(s) to send, a question, and some labels. It samples rows, asks the model one row per request, and writes a report:
+**How trustworthy is an AI decision on your table?** Point `pgdocket check` at a Postgres table, the text column(s) to send, a question, and some labels. It samples rows, asks the model one row per request, and writes a report:
 
 - **agreement** with your labels, per option, and the most common disagreements;
 - **calibration**: how far the model's confidence is from reality, before and after a one-parameter calibrator fitted on your labels;
@@ -20,19 +20,19 @@ It is **read-only** on your database. It talks to any `/v1/systemone`-compatible
 ## Usage
 
 ```bash
-pip install "psycopg[binary]" numpy          # or use the repo's Docker image
+pip install "git+https://github.com/ElyasEbrahim/pgdocket"   # or use the Docker image
 export DATABASE_URL=postgresql://...          # your database (read-only access is enough)
 export TYPESAFE_API_KEY=...                   # for the Jev backend
 
 # A choice question, with labels already in a column
-python -m docket check \
+pgdocket check \
   --table public.tickets --key id --text subject,body \
   --kind choice --question "Which team should handle this ticket?" \
   --options billing,technical,security,sales --label-column team \
   --sample 300 --repeat 100 --batch-test 100 --yes
 
 # A yes/no question
-python -m docket check \
+pgdocket check \
   --table public.tickets --key id --text subject,body \
   --kind noul --question "the customer threatens to cancel" \
   --label-column churned --positive true --yes
@@ -41,14 +41,14 @@ python -m docket check \
 **No labels yet?** Export a sample, label it in a spreadsheet, and read it back:
 
 ```bash
-python -m docket check ... --export-sample sample.csv     # writes key, text columns, empty label
-python -m docket check ... --label-file sample.csv --yes  # after filling in the label column
+pgdocket check ... --export-sample sample.csv     # writes key, text columns, empty label
+pgdocket check ... --label-file sample.csv --yes  # after filling in the label column
 ```
 
 **Re-analyse without paying again**, for example with another precision target:
 
 ```bash
-python -m docket report results/check-<timestamp> --precision-target 0.85
+pgdocket report results/check-<timestamp> --precision-target 0.85
 ```
 
 ## Options worth knowing
@@ -86,13 +86,13 @@ Write-up: [docs/phase1/kubernetes-triage.md](../docs/phase1/kubernetes-triage.md
 Declare a decision once. Every row gets a stored answer that stays current as rows are inserted or edited, with calibrated confidence and an `auto` flag for answers above a guaranteed threshold. It's plain SQL plus an external worker, with no superuser and no extension ([ADR 0004](../docs/adr/0004-ledger-queue-and-worker.md)).
 
 ```bash
-python -m docket install                                   # schema docket; needs CREATE on the database
-python -m docket create triage --table shop.tickets --key id --text subject,body \
+pgdocket install                                   # schema docket; needs CREATE on the database
+pgdocket create triage --table shop.tickets --key id --text subject,body \
   --kind choice --question "Which team should handle this ticket?" --options-file teams.json
-python -m docket worker                                    # long-running; or --once to drain the queue
-python -m docket label triage --from-column team --sample 200    # or --csv labels.csv (key,label)
-python -m docket calibrate triage --precision-target 0.9
-python -m docket status
+pgdocket worker                                    # long-running; or --once to drain the queue
+pgdocket label triage --from-column team --sample 200    # or --csv labels.csv (key,label)
+pgdocket calibrate triage --precision-target 0.9
+pgdocket status
 ```
 
 ```sql
@@ -106,7 +106,7 @@ WHERE status = 'judged' AND auto;            -- the answers you can act on witho
 | `status` | `pending` (queued), `judged`, `missing` (not judged yet), `error` (failed 5 times; see `docket.queue.last_error`) |
 | `answer` | choice: the option; yes/no: `yes` / `no` (at the calibrated threshold, or 0.5 before calibration) |
 | `confidence` | calibrated probability of that option (choice) or of yes (yes/no); raw before calibration |
-| `auto` | confidence ≥ the guaranteed threshold; NULL until `docket calibrate` has run |
+| `auto` | confidence ≥ the guaranteed threshold; NULL until `pgdocket calibrate` has run |
 
 - **Triggers** queue a row only when a judged column actually changes. Application roles need no grant on the `docket` schema, because the trigger function is `SECURITY DEFINER`.
 - **The worker** skips rows whose input hasn't changed, retries with back-off, and stops at `--max-usd`.

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from docket.metrics import clopper_pearson_lower, precision_threshold
+from pgdocket.metrics import clopper_pearson_lower, precision_threshold
 
 
 def test_clopper_pearson_solves_its_definition():

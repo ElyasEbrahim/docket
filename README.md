@@ -1,13 +1,13 @@
 **English** | [简体中文](README.zh-CN.md)
 
-# Docket (working name)
+# pgdocket
 
-[![CI](https://github.com/ElyasEbrahim/docket/actions/workflows/ci.yml/badge.svg)](https://github.com/ElyasEbrahim/docket/actions/workflows/ci.yml)
+[![CI](https://github.com/ElyasEbrahim/pgdocket/actions/workflows/ci.yml/badge.svg)](https://github.com/ElyasEbrahim/pgdocket/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**Durable, versioned, calibrated AI decisions for Postgres.** Declare a semantic decision once (*"is this complaint about debt collection?"*). Docket keeps the answer stored as data, versioned, calibrated against your own labels, and honest about its uncertainty, in any Postgres and with any decision model.
+**Durable, versioned, calibrated AI decisions for Postgres.** Declare a semantic decision once (*"is this complaint about debt collection?"*). pgdocket keeps the answer stored as data, versioned, calibrated against your own labels, and honest about its uncertainty, in any Postgres and with any decision model.
 
-> **Status: Phase 1 in progress.** Two pieces work: [`docket check`](docket/README.md) measures how trustworthy an AI decision is on *your* table, and the [ledger](docs/phase1/ledger.md) stores decisions in Postgres and keeps them current as rows change. Not built yet: version comparison, error bars on counts, other backends' adapters, a packaged release. The repository also contains the design ([REPORT.md](REPORT.md), [ADRs](docs/adr/)) and the Phase 0 benchmark ([findings](docs/phase0/FINDINGS-jev-1.13.md)). Progress is tracked in [issues](https://github.com/ElyasEbrahim/docket/issues) and [milestones](https://github.com/ElyasEbrahim/docket/milestones).
+> **Status: Phase 1 in progress.** Two pieces work: [`pgdocket check`](pgdocket/README.md) measures how trustworthy an AI decision is on *your* table, and the [ledger](docs/phase1/ledger.md) stores decisions in Postgres and keeps them current as rows change. Not built yet: version comparison, error bars on counts, other backends' adapters, a packaged release. The repository also contains the design ([REPORT.md](REPORT.md), [ADRs](docs/adr/)) and the Phase 0 benchmark ([findings](docs/phase0/FINDINGS-jev-1.13.md)). Progress is tracked in [issues](https://github.com/ElyasEbrahim/pgdocket/issues) and [milestones](https://github.com/ElyasEbrahim/pgdocket/milestones).
 
 ## The problem
 
@@ -37,19 +37,28 @@ Model calls now cost roughly **$6–25 per million rows** (depending on text len
 
 Write-up for a general audience: [*Same row, different answer*](docs/notes/2026-10-same-row-different-answer.md). Details, methods and limits: [docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md).
 
-## Try it on your own data: `docket check`
+## Install
+
+```bash
+pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # Python 3.10+; PyPI release coming
+pgdocket --version
+```
+
+Or as a container: `docker build -t pgdocket .` from this repository. **New here?** The [5-minute quickstart](examples/quickstart/README.md) runs Postgres, the worker and 60 synthetic support tickets with Docker. It costs about $0.001 in API calls.
+
+## Try it on your own data: `pgdocket check`
 
 Point it at a table, the text to send, a question and some labels (an existing column, or a CSV you label by hand). It reports agreement, calibration, a threshold with a stated precision guarantee, consistency and cost. It's read-only, and no row text goes in the report.
 
 ```bash
-python -m docket check --table public.tickets --key id --text subject,body \
+pgdocket check --table public.tickets --key id --text subject,body \
   --kind choice --question "Which team should handle this ticket?" \
   --options billing,technical,security,sales --label-column team --yes
 ```
 
-On two years of Kubernetes issues, routing to 10 teams (SIGs) agreed with the human labels **88.8 %** of the time. **90 % of issues could be auto-routed with precision ≥ 90 % guaranteed** at 95 % confidence ([write-up](docs/phase1/kubernetes-triage.md), [report](results/check-k8s-sig/report.md)). Full usage: [docket/README.md](docket/README.md).
+On two years of Kubernetes issues, routing to 10 teams (SIGs) agreed with the human labels **88.8 %** of the time. **90 % of issues could be auto-routed with precision ≥ 90 % guaranteed** at 95 % confidence ([write-up](docs/phase1/kubernetes-triage.md), [report](results/check-k8s-sig/report.md)). Full usage: [docket/README.md](pgdocket/README.md).
 
-## What Docket does, and will do
+## What pgdocket does, and will do
 
 1. **Stored decisions.** *Built.* Answers live in an append-only ledger and a view you can join and index. New and changed rows are judged automatically, one row per request. 100,000 rows: one row reads in 0.14 ms; on a live stream, the median time from insert to answer was 0.7 s ([details](docs/phase1/ledger.md)).
 2. **Calibration on your labels.** *Built.* About 100–200 human labels per decision turn raw scores into probabilities that mean what they say. The view shows the calibrated confidence and an `auto` flag.
@@ -90,8 +99,9 @@ More commands (determinism, learning curve, batch context): [harness/README.md](
 | [docs/phase0/](docs/phase0/) | Phase 0 findings, status, draft upstream issue |
 | [docs/notes/](docs/notes/) | Public write-ups |
 | [docs/phase1/](docs/phase1/) | Phase 1 results: the ledger, Kubernetes triage |
-| [docket/](docket/) | The product: `docket check` (and later the ledger) |
-| [examples/](examples/) | Option files with descriptions for the example checks |
+| [docket/](pgdocket/) | The product: `pgdocket check` (and later the ledger) |
+| [examples/](examples/) | The [5-minute quickstart](examples/quickstart/README.md), and option files for the example checks |
+| `pyproject.toml`, `Dockerfile` | Packaging: the `pgdocket` command and the worker image ([releasing](docs/RELEASING.md)) |
 | [harness/](harness/) | Benchmark harness: `jevbench` CLI, simulated backend, tests |
 | [results/](results/) | Benchmark reports from the runs cited in the findings |
 | `docker-compose.yml`, `Makefile` | The benchmark stack and its commands |

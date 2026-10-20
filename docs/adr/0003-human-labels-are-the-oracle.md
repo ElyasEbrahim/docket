@@ -17,6 +17,6 @@ Semantic query research (LOTUS, BARGAIN, SUPG-IT, Cortex AISQL cascades) treats 
 
 ## Consequences
 
-- Docket's numbers are only as good as the sampling assumptions. The docs must state them: gold drawn from the same population, labels correct, distribution stable since labeling.
+- pgdocket's numbers are only as good as the sampling assumptions. The docs must state them: gold drawn from the same population, labels correct, distribution stable since labeling.
 - Drift monitoring (Phase 3) has to tell the user when gold labels are stale.
 - The review queue becomes a core feature rather than an add-on.

@@ -1,6 +1,6 @@
 # Same row, different answer: what I measured running Jev over 2,000 complaints in Postgres
 
-*ElyasEbrahim · October 2026 · [github.com/ElyasEbrahim/docket](https://github.com/ElyasEbrahim/docket)*
+*ElyasEbrahim · October 2026 · [github.com/ElyasEbrahim/pgdocket](https://github.com/ElyasEbrahim/pgdocket)*
 
 [pg-jev](https://github.com/realZachi/pg-jev) lets you filter Postgres rows with a plain-language condition, such as `WHERE jev(tickets, 'the customer threatens to cancel')`. Behind it, TypeSafe's Jev decision model returns probabilities instead of text. It is fast, cheap and pleasant to use.
 
@@ -95,7 +95,7 @@ Two practical details:
 
 ## What I'm building
 
-These steps are tedious to do by hand, so I'm building **[Docket](https://github.com/ElyasEbrahim/docket)**: a layer that keeps AI decisions in Postgres stored, versioned and calibrated. The plan: judge one row per request, keep a ledger of every answer, calibrate on a few hundred of your labels, report counts with confidence intervals, and run on managed Postgres (Supabase, Neon, RDS) without special extensions. None of that is built yet. This benchmark is the first phase, and it decides what gets built.
+These steps are tedious to do by hand, so I'm building **[pgdocket](https://github.com/ElyasEbrahim/pgdocket)**: a layer that keeps AI decisions in Postgres stored, versioned and calibrated. The plan: judge one row per request, keep a ledger of every answer, calibrate on a few hundred of your labels, report counts with confidence intervals, and run on managed Postgres (Supabase, Neon, RDS) without special extensions. None of that is built yet. This benchmark is the first phase, and it decides what gets built.
 
 **If you classify text stored in Postgres** (support tickets, reviews, complaints, moderation queues), I'd like to hear how you handle this today. I'm happy to run the same calibration check on a sample of your data. Open an issue on the repo to get in touch.
 
@@ -110,7 +110,7 @@ These steps are tedious to do by hand, so I'm building **[Docket](https://github
 ## Reproduce it
 
 ```bash
-git clone https://github.com/ElyasEbrahim/docket && cd docket
+git clone https://github.com/ElyasEbrahim/pgdocket && cd docket
 make up && make test
 make fetch load                       # CFPB sample → Postgres
 make bench                            # simulated backend, free

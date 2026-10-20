@@ -20,7 +20,7 @@ jobs:
           cache: pip
           cache-dependency-path: harness/requirements.txt
       - run: pip install -r harness/requirements.txt
-      - run: python -m pytest -q harness/tests docket/tests
+      - run: python -m pytest -q harness/tests pgdocket/tests
         env:
           PYTHONPATH: harness:.
 
@@ -55,7 +55,7 @@ jobs:
           cache: pip
           cache-dependency-path: harness/requirements.txt
       - run: pip install -r harness/requirements.txt
-      - run: python -m pytest -q docket/tests/test_ledger_pg.py
+      - run: python -m pytest -q pgdocket/tests/test_ledger_pg.py
         env:
           PYTHONPATH: harness:.
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres

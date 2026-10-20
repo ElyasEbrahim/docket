@@ -21,7 +21,7 @@ def connect(dsn, **kw):
 
 
 def _migrations():
-    files = sorted(f for f in resources.files("docket").joinpath("sql").iterdir() if f.name.endswith(".sql"))
+    files = sorted(f for f in resources.files("pgdocket").joinpath("sql").iterdir() if f.name.endswith(".sql"))
     return [(f.name.split("_", 1)[0], f.read_text()) for f in files]
 
 

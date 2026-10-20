@@ -1,4 +1,4 @@
--- Docket ledger, version 001. Plain SQL + PL/pgSQL: no superuser, no extensions (ADR 0001, 0004).
+-- pgdocket ledger, version 001. Plain SQL + PL/pgSQL: no superuser, no extensions (ADR 0001, 0004).
 -- Applied by `python -m docket install`, which records it in docket.migration.
 
 CREATE SCHEMA IF NOT EXISTS docket;

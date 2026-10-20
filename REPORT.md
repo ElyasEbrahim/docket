@@ -1,5 +1,7 @@
 # Project Report: What to Build on Top of pg-jev
 
+> **Note (2026-10-20):** the project proposed here under the working name *Docket* is now called **pgdocket**: "docket" clashes with an existing Python package. The report is kept as written; current status is in the [README](README.md).
+
 **Prepared:** 17 October 2026
 **Inputs:** the pg-jev repository ([realZachi/pg-jev](https://github.com/realZachi/pg-jev), v0.2.1, read in full), the article *"不用向量索引，Postgres 也能做语义过滤：pg-jev 上手"* (winkrun, 4 Oct 2026; not redistributed in this repository), and a review of current work as of mid-October 2026 (vendor docs, arXiv preprints from 2025–2026, competing products). Sources are listed at the end.
 

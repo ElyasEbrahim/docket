@@ -43,7 +43,7 @@ services:
     working_dir: /work/harness          # `python -m` puts the cwd first on sys.path: run the mounted code, not the image's copy
     volumes:
       - ./harness:/work/harness:ro
-      - ./docket:/work/docket:ro
+      - ./pgdocket:/work/pgdocket:ro
     environment:
       <<: *bench-env
       PYTHONPATH: /work/harness:/work

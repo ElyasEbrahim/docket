@@ -16,20 +16,20 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 - [ ] Optional second backend: stuntd / laya-server via `--api-url`; OpenAI Decisions needs an adapter (different contract)
 - [x] Run-to-run determinism check and label learning curve (FINDINGS §7–§8; corrected the order and drift claims)
 - [x] Batch-context check (#3): ~16.5 % of answers change with batch neighbours (FINDINGS §9)
-- [x] Batch size 1 (#10): +2.4 pp accuracy at 1.8× tokens; Docket judges one row per request (FINDINGS §10, ADR 0002)
+- [x] Batch size 1 (#10): +2.4 pp accuracy at 1.8× tokens; pgdocket judges one row per request (FINDINGS §10, ADR 0002)
 - [ ] Optional: run-to-run stability at batch size 1 (≈ $0.05)
 - [ ] Turn the draft findings into the public technical note (#2)
 - [ ] File the cache-key issue upstream (after review); PR adding PostgreSQL 18 to pg-jev's CI matrix
 - [ ] Open a pg-jev GitHub Discussion about persisting and calibrating judgments; talk to 5–10 potential users
-- [ ] Check the name "Docket" on PyPI, GitHub and npm; pick a final name
+- [x] Name checked and chosen: **pgdocket** (#8); "docket" clashes with the `pydocket` package
 
 **Exit (go/no-go):** measurable miscalibration or drift on real data **and** ≥3 people say they would use durable decisions.
 
-**Decision (2026-10-19):** the technical half is met. The demand half is **deferred, not dropped**: no real users have been reached yet, so work continues into Phase 1 on real public data that stands in for a user's table (Kubernetes issue triage, #11). The first deliverable is something people can try on their own data without a conversation (`docket check`, #12). Revisit the demand gate once that check is usable and has been promoted.
+**Decision (2026-10-19):** the technical half is met. The demand half is **deferred, not dropped**: no real users have been reached yet, so work continues into Phase 1 on real public data that stands in for a user's table (Kubernetes issue triage, #11). The first deliverable is something people can try on their own data without a conversation (`pgdocket check`, #12). Revisit the demand gate once that check is usable and has been promoted.
 
 ## Phase 1: Ledger core (weeks 3–6)
 
-- [x] `docket check` (#12): the first piece people can run on their own data; validated against Phase 0 and run on the Kubernetes triage scenario (#11)
+- [x] `pgdocket check` (#12): the first piece people can run on their own data; validated against Phase 0 and run on the Kubernetes triage scenario (#11)
 - [x] Migration tooling for the `docket` schema (plain SQL; PG 14–18) (#13)
 - [x] Tables: `decision`, `version` (spec + `spec_hash`), `judgment` (append-only), `current`, `queue`, `label`
 - [x] Triggers on source tables → `queue` (only when judged columns change; `SECURITY DEFINER`)
@@ -66,7 +66,8 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 ## Phase 4: Ship v0.1 (weeks 13–14)
 
 - [ ] Docs site / README, quick start for self-hosted, Supabase, Neon and RDS
-- [ ] Docker image + PyPI package; SQL part listed on PGXN or database.dev
+- [x] Docker image + PyPI package prepared (v0.1.0a1; publishing needs the one-time setup in docs/RELEASING.md)
+- [ ] SQL part listed on PGXN or database.dev
 - [ ] Case study (CFPB or OSHA narratives) with reproducible notebook
 - [ ] Launch post; link from the pg-jev discussion
 

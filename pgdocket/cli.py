@@ -1,15 +1,15 @@
 """docket: durable, versioned, calibrated AI decisions for Postgres.
 
-  docket check      how trustworthy is an AI decision on your table? (read-only)
-  docket report     re-analyse a check folder from its saved answers (no API calls)
+  pgdocket check      how trustworthy is an AI decision on your table? (read-only)
+  pgdocket report     re-analyse a check folder from its saved answers (no API calls)
 
-  docket install    create or upgrade the docket schema (no superuser needed)
-  docket create     declare a decision on a table: triggers, queue, view docket.v_<name>
-  docket worker     judge queued rows and keep the ledger current
-  docket label      import human labels (from a column or a key,label CSV)
-  docket calibrate  fit a calibrator and a guaranteed threshold from the labels
-  docket status     decisions, queue depth, errors, labels, tokens
-  docket drop       remove a decision (triggers, view, ledger); the source table is untouched
+  pgdocket install    create or upgrade the docket schema (no superuser needed)
+  pgdocket create     declare a decision on a table: triggers, queue, view docket.v_<name>
+  pgdocket worker     judge queued rows and keep the ledger current
+  pgdocket label      import human labels (from a column or a key,label CSV)
+  pgdocket calibrate  fit a calibrator and a guaranteed threshold from the labels
+  pgdocket status     decisions, queue depth, errors, labels, tokens
+  pgdocket drop       remove a decision (triggers, view, ledger); the source table is untouched
 """
 import argparse
 import json
@@ -31,7 +31,8 @@ def _options(args):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="docket", description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap = argparse.ArgumentParser(prog="pgdocket", description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap.add_argument("--version", action="version", version="pgdocket " + __import__("pgdocket").__version__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("check", help="sample, judge and score an AI decision against labels (read-only)")
     c.add_argument("--dsn", default=os.environ.get("DATABASE_URL"), help="Postgres connection string (or DATABASE_URL)")

@@ -1,6 +1,6 @@
 """Replay real issues into an empty "live" table in their original order, as if they were arriving now.
 
-demo.k8s_live mirrors a team's ticket table: Docket judges `title` and `body`; `sig` is the team the issue was
+demo.k8s_live mirrors a team's ticket table: pgdocket judges `title` and `body`; `sig` is the team the issue was
 eventually routed to (the label a triager would record), and `inserted_at` lets us measure decision latency.
 """
 import time

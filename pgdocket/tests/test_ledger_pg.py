@@ -1,6 +1,6 @@
 """Ledger integration tests against a real Postgres (set TEST_DATABASE_URL to a superuser connection).
 
-The superuser is only used to create a throwaway database and two roles. Everything Docket does runs as an
+The superuser is only used to create a throwaway database and two roles. Everything pgdocket does runs as an
 ordinary role (`owner`), and the application writes to its table as a second role (`app`) that has no grant
 at all on the docket schema. This is the setup of a managed Postgres.
 """
@@ -13,9 +13,9 @@ import pytest
 psycopg = pytest.importorskip("psycopg")
 from psycopg.conninfo import make_conninfo  # noqa: E402
 
-from docket import calibration, ledger  # noqa: E402
-from docket.tests.fakes import FakeSystemOne, serve  # noqa: E402
-from docket.worker import Worker  # noqa: E402
+from pgdocket import calibration, ledger  # noqa: E402
+from pgdocket.tests.fakes import FakeSystemOne, serve  # noqa: E402
+from pgdocket.worker import Worker  # noqa: E402
 
 BASE = os.environ.get("TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not BASE, reason="set TEST_DATABASE_URL to run ledger integration tests")

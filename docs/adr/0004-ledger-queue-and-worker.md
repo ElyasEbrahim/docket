@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR 0001 puts Docket's core in plain SQL with an external worker. ADR 0002 makes the versioned spec the unit of deployment and, after Phase 0, defaults to one row per request. Phase 0 also showed that answers aren't reproducible by asking again (4.8 % of rows flip across identical runs), so the stored answer is the record. This ADR fixes the concrete data model and the worker contract for Phase 1.
+ADR 0001 puts pgdocket's core in plain SQL with an external worker. ADR 0002 makes the versioned spec the unit of deployment and, after Phase 0, defaults to one row per request. Phase 0 also showed that answers aren't reproducible by asking again (4.8 % of rows flip across identical runs), so the stored answer is the record. This ADR fixes the concrete data model and the worker contract for Phase 1.
 
 ## Decision
 

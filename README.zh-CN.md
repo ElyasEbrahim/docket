@@ -1,13 +1,13 @@
 [English](README.md) | **简体中文**
 
-# Docket（暂定名）
+# pgdocket
 
-[![CI](https://github.com/ElyasEbrahim/docket/actions/workflows/ci.yml/badge.svg)](https://github.com/ElyasEbrahim/docket/actions/workflows/ci.yml)
+[![CI](https://github.com/ElyasEbrahim/pgdocket/actions/workflows/ci.yml/badge.svg)](https://github.com/ElyasEbrahim/pgdocket/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-**为 Postgres 提供可持久保存、可版本化、经过校准的 AI 判断。** 你只需定义一次语义判断（例如 *"这条投诉是否与催收有关？"*），Docket 会把结果作为数据保存下来：带版本、用你自己的标注校准，并如实给出不确定性。它适用于任何 Postgres，也适用于任何判断模型。
+**为 Postgres 提供可持久保存、可版本化、经过校准的 AI 判断。** 你只需定义一次语义判断（例如 *"这条投诉是否与催收有关？"*），pgdocket 会把结果作为数据保存下来：带版本、用你自己的标注校准，并如实给出不确定性。它适用于任何 Postgres，也适用于任何判断模型。
 
-> **状态：第 1 阶段进行中。** 已有两个组件可用：[`docket check`](docket/README.md) 衡量 AI 判断在*你自己的*数据表上有多可靠；[判断记录表（ledger）](docs/phase1/ledger.md) 把判断保存在 Postgres 中，并在数据行变化时自动保持最新。尚未开发：版本对比、计数的误差范围、其他后端的适配器、正式发布包。本仓库还包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)）和第 0 阶段的基准测试（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/docket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/docket/milestones) 跟踪。
+> **状态：第 1 阶段进行中。** 已有两个组件可用：[`pgdocket check`](pgdocket/README.md) 衡量 AI 判断在*你自己的*数据表上有多可靠；[判断记录表（ledger）](docs/phase1/ledger.md) 把判断保存在 Postgres 中，并在数据行变化时自动保持最新。尚未开发：版本对比、计数的误差范围、其他后端的适配器、正式发布包。本仓库还包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)）和第 0 阶段的基准测试（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/pgdocket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/pgdocket/milestones) 跟踪。
 
 > 注：除本 README 外，其余文档目前仅有英文版。
 
@@ -39,19 +39,28 @@
 
 面向一般读者的文章：[*Same row, different answer*](docs/notes/2026-10-same-row-different-answer.md)（英文）。详细结果、方法和局限：[docs/phase0/FINDINGS-jev-1.13.md](docs/phase0/FINDINGS-jev-1.13.md)（英文）。
 
-## 在你自己的数据上试用：`docket check`
+## 安装
+
+```bash
+pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # 需要 Python 3.10+；PyPI 版本即将发布
+pgdocket --version
+```
+
+也可以使用容器：在本仓库中运行 `docker build -t pgdocket .`。**第一次使用？** [5 分钟快速上手](examples/quickstart/README.md)（英文）会用 Docker 启动 Postgres、worker 和 60 条合成的客服工单，API 费用约 0.001 美元。
+
+## 在你自己的数据上试用：`pgdocket check`
 
 指定一张表、要发送的文本列、一个问题和一些标注（已有的标注列，或你手工标注的 CSV），它会报告：与标注的一致程度、校准情况、一个带有明确精确率保证的阈值、答案的稳定性以及成本。全程只读，报告中不包含任何行的文本内容。
 
 ```bash
-python -m docket check --table public.tickets --key id --text subject,body \
+pgdocket check --table public.tickets --key id --text subject,body \
   --kind choice --question "Which team should handle this ticket?" \
   --options billing,technical,security,sales --label-column team --yes
 ```
 
-在两年的 Kubernetes issue 上，把 issue 分派给 10 个团队（SIG）的结果与人工标注的一致率为 **88.8%**；**90% 的 issue 可以自动分派，并以 95% 的置信度保证精确率 ≥ 90%**（[说明](docs/phase1/kubernetes-triage.md)、[报告](results/check-k8s-sig/report.md)，均为英文）。完整用法：[docket/README.md](docket/README.md)（英文）。
+在两年的 Kubernetes issue 上，把 issue 分派给 10 个团队（SIG）的结果与人工标注的一致率为 **88.8%**；**90% 的 issue 可以自动分派，并以 95% 的置信度保证精确率 ≥ 90%**（[说明](docs/phase1/kubernetes-triage.md)、[报告](results/check-k8s-sig/report.md)，均为英文）。完整用法：[docket/README.md](pgdocket/README.md)（英文）。
 
-## Docket 能做什么，以及将要做什么
+## pgdocket 能做什么，以及将要做什么
 
 1. **持久保存的判断。** *已实现。* 结果写入只追加的记录表（ledger），并提供一个可以 join、可以建索引的视图。新增或修改的行会被自动判断，每次请求只判断一行。在 10 万行的表上读取单行只需 0.14 毫秒；在实时数据流中，从插入到得出判断的中位时间为 0.7 秒（[详情](docs/phase1/ledger.md)，英文）。
 2. **用你自己的标注来校准。** *已实现。* 每个判断只需约 100–200 条人工标注，就能把原始分数变成名副其实的概率。视图中会显示校准后的置信度和 `auto` 标记。
@@ -92,8 +101,9 @@ make bench BACKEND=jev ARGS=--yes   # 会先显示预估费用；超过 1 美元
 | [docs/phase0/](docs/phase0/) | 第 0 阶段的结论、状态、待提交给上游的问题草稿 |
 | [docs/notes/](docs/notes/) | 面向公众的文章 |
 | [docs/phase1/](docs/phase1/) | 第 1 阶段结果：判断记录表（ledger）、Kubernetes issue 分派 |
-| [docket/](docket/) | 产品本身：`docket check`（之后还有判断记录表） |
-| [examples/](examples/) | 示例检查所用的选项文件（含说明） |
+| [docket/](pgdocket/) | 产品本身：`pgdocket check`（之后还有判断记录表） |
+| [examples/](examples/) | [5 分钟快速上手](examples/quickstart/README.md)，以及示例检查所用的选项文件 |
+| `pyproject.toml`、`Dockerfile` | 打包：`pgdocket` 命令和 worker 镜像（[发布流程](docs/RELEASING.md)，英文） |
 | [harness/](harness/) | 基准测试工具：`jevbench` 命令行、模拟后端、测试 |
 | [results/](results/) | 结论中引用的各次运行报告 |
 | `docker-compose.yml`、`Makefile` | 测试环境及其命令 |

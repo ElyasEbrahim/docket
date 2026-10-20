@@ -2,7 +2,7 @@
 
 *2026-10-20 · issue #13 · design: [ADR 0004](../adr/0004-ledger-queue-and-worker.md)*
 
-The core of Docket: declare a decision on a table once, and every row gets a stored, versioned answer that stays current as rows are inserted or edited. It's plain SQL plus an external worker, with no superuser and no extension.
+The core of pgdocket: declare a decision on a table once, and every row gets a stored, versioned answer that stays current as rows are inserted or edited. It's plain SQL plus an external worker, with no superuser and no extension.
 
 ## How it fits together
 
@@ -14,19 +14,19 @@ docket.v_<name>  ◀── docket.current ◀── docket.judgment (append-only
 ```
 
 ```bash
-python -m docket install                                     # schema docket (migration 001)
-python -m docket create triage --table shop.tickets --key id --text subject,body \
+pgdocket install                                     # schema docket (migration 001)
+pgdocket create triage --table shop.tickets --key id --text subject,body \
   --kind choice --question "Which team should handle this ticket?" \
   --options-file teams.json                                  # triggers + view; existing rows queued
-python -m docket worker                                      # keeps judging as rows arrive
-python -m docket label triage --from-column team --sample 200   # or --csv labels.csv
-python -m docket calibrate triage --precision-target 0.9
+pgdocket worker                                      # keeps judging as rows arrive
+pgdocket label triage --from-column team --sample 200   # or --csv labels.csv
+pgdocket calibrate triage --precision-target 0.9
 psql -c "SELECT key, answer, confidence, auto FROM docket.v_triage WHERE status = 'judged'"
 ```
 
 ## Tests
 
-10 integration tests run on a real Postgres in CI, on **versions 14, 15, 16, 17 and 18**. Docket runs as an ordinary role, and the application writes as a second role **with no grant on the `docket` schema**. They cover:
+10 integration tests run on a real Postgres in CI, on **versions 14, 15, 16, 17 and 18**. pgdocket runs as an ordinary role, and the application writes as a second role **with no grant on the `docket` schema**. They cover:
 
 - install without superuser, and re-running install (idempotent);
 - backfill on create, and enqueueing from the app role through the `SECURITY DEFINER` trigger;
@@ -42,14 +42,14 @@ psql -c "SELECT key, answer, confidence, auto FROM docket.v_triage WHERE status 
 
 | Step | Result |
 | --- | --- |
-| `docket create` on a 100,000-row table (backfill queued) | **1.6 s** including container start |
+| `pgdocket create` on a 100,000-row table (backfill queued) | **1.6 s** including container start |
 | Worker judges all 100,000 rows (one per request, 32 concurrent) | **161 s** (~620 rows/s), 0 failures |
 | Read one row from `docket.v_scale` | **0.14 ms** execution (index lookups only); 0.5–3 ms from the client |
 | Aggregate over all 100,000 rows (`GROUP BY answer`) | **90–160 ms** |
 | Change `team` on 5,000 rows (not judged) | **0 rows** queued |
 | Edit the text of 1,000 rows | exactly **1,000** queued, shown as `pending`, re-judged in ~3 s; ledger holds 101,000 judgments for 100,000 rows |
 
-The simulator answers in about a millisecond, so 620 rows/s measures Docket's own overhead. With Jev (≈ 0.2–0.3 s per call at 32 in parallel), expect roughly 100–150 rows/s. That's about 11–17 minutes and ~$4 for 100,000 Kubernetes-length rows.
+The simulator answers in about a millisecond, so 620 rows/s measures pgdocket's own overhead. With Jev (≈ 0.2–0.3 s per call at 32 in parallel), expect roughly 100–150 rows/s. That's about 11–17 minutes and ~$4 for 100,000 Kubernetes-length rows.
 
 **Phase 1 exit criterion** ("a 100k-row table judged once and read in milliseconds; no superuser"): met.
 
@@ -67,7 +67,7 @@ The 300 most recent issues that belong to one of the 10 SIGs were inserted into 
 
 ### Calibrating like a team would, and checking it on unseen issues
 
-200 of the 300 issues' real SIG labels were imported (`docket label --from-column sig --sample 200`), then `docket calibrate --precision-target 0.9`:
+200 of the 300 issues' real SIG labels were imported (`pgdocket label --from-column sig --sample 200`), then `pgdocket calibrate --precision-target 0.9`:
 
 - calibration error **0.059 → 0.026**;
 - threshold **0.732**, guaranteeing precision ≥ 90 % (95 % confidence) on the labeled sample, with **95 %** of rows above it.

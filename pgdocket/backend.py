@@ -1,6 +1,6 @@
 """Client for `/v1/systemone`-compatible decision backends (TypeSafe Jev, stuntd, laya-server, the harness sim).
 
-Speaks the same request format pg-jev uses: a shared `state` with `rows`, one question per row. Docket calls the
+Speaks the same request format pg-jev uses: a shared `state` with `rows`, one question per row. pgdocket calls the
 backend directly instead of going through pg-jev, so it works on managed Postgres where pg-jev can't be installed.
 """
 import http.client
@@ -10,6 +10,8 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlsplit
+
+from . import __version__
 
 KNOWN = {
     "jev": "https://api.typesafe.ai/v1/systemone",
@@ -64,7 +66,7 @@ class Backend:
         return c
 
     def _post(self, body):
-        headers = {"Content-Type": "application/json", "User-Agent": "docket/0.0.1"}
+        headers = {"Content-Type": "application/json", "User-Agent": "pgdocket/" + __version__}
         if self.api_key:
             headers["Authorization"] = "Bearer " + self.api_key
         delay, last = 0.5, None

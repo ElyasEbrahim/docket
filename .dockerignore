@@ -1,0 +1,10 @@
+.git
+.env
+data
+results
+harness
+docs
+examples
+pg&jev.pdf
+**/__pycache__
+**/.pytest_cache

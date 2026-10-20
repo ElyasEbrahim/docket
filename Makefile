@@ -45,11 +45,11 @@ smoke: up
 	$(PSQL) < harness/sql/smoke.sql
 
 test:
-	$(COMPOSE) run --rm --no-deps --entrypoint python bench -m pytest -q harness/tests docket/tests
+	$(COMPOSE) run --rm --no-deps --entrypoint python bench -m pytest -q harness/tests pgdocket/tests
 
 itest: up
 	$(COMPOSE) run --rm -e TEST_DATABASE_URL=postgresql://postgres:bench@db:5432/bench --entrypoint python bench \
-		-m pytest -q docket/tests/test_ledger_pg.py
+		-m pytest -q pgdocket/tests/test_ledger_pg.py
 
 fetch:
 	$(BENCH) fetch --n $(FETCH_N)

@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from docket.backend import Backend, BackendError
-from docket.check import CheckConfig, analyse_choice, analyse_noul, render
-from docket.tests.fakes import FakeSystemOne, serve
+from pgdocket.backend import Backend, BackendError
+from pgdocket.check import CheckConfig, analyse_choice, analyse_noul, render
+from pgdocket.tests.fakes import FakeSystemOne, serve
 
 
 @pytest.fixture()
@@ -86,3 +86,12 @@ def test_noul_analysis_threshold_has_recall():
     a = analyse_noul(cfg, sample, answers)
     assert a["auroc"] > 0.9
     assert a["threshold"]["chosen"] and 0 < a["threshold"]["chosen"]["recall"] <= 1
+
+
+def test_recommendation_when_calibration_does_not_help_yet():
+    from pgdocket.check import recommendations
+    r = {"config": {"kind": "choice"}, "sample": {"labeled_rows": 60}, "stability": None, "batching": None,
+         "analysis": {"ece_raw": 0.052, "ece_calibrated": 0.055,
+                      "threshold": {"chosen": None, "target": 0.9, "alpha": 0.05}, "ladder": []}}
+    text = " ".join(recommendations(r))
+    assert "doesn't improve it yet" in text and "Don't read the raw scores" not in text
