@@ -1,3 +1,10 @@
+# Docket
+
+Two pieces work today:
+
+- **[`docket check`](#docket-check)**: how trustworthy is an AI decision on your table? Read-only.
+- **[The ledger](#the-ledger)**: decisions stored in Postgres and kept current as rows change.
+
 # `docket check`
 
 **How trustworthy is an AI decision on your table?** Point `docket check` at a Postgres table, the text column(s) to send, a question, and some labels. It samples rows, asks the model one row per request, and writes a report:
@@ -73,3 +80,36 @@ Real data, real model (jev-1.13.0), October 2026:
 - [CFPB complaints → which financial product?](../results/check-cfpb-product/report.md): reproduces the Phase 0 benchmark (79.8 % vs 79.3 %).
 
 Write-up: [docs/phase1/kubernetes-triage.md](../docs/phase1/kubernetes-triage.md).
+
+# The ledger
+
+Declare a decision once. Every row gets a stored answer that stays current as rows are inserted or edited, with calibrated confidence and an `auto` flag for answers above a guaranteed threshold. It's plain SQL plus an external worker, with no superuser and no extension ([ADR 0004](../docs/adr/0004-ledger-queue-and-worker.md)).
+
+```bash
+python -m docket install                                   # schema docket; needs CREATE on the database
+python -m docket create triage --table shop.tickets --key id --text subject,body \
+  --kind choice --question "Which team should handle this ticket?" --options-file teams.json
+python -m docket worker                                    # long-running; or --once to drain the queue
+python -m docket label triage --from-column team --sample 200    # or --csv labels.csv (key,label)
+python -m docket calibrate triage --precision-target 0.9
+python -m docket status
+```
+
+```sql
+SELECT key, status, answer, confidence, auto, judged_at
+FROM docket.v_triage
+WHERE status = 'judged' AND auto;            -- the answers you can act on without review
+```
+
+| Column | Meaning |
+| --- | --- |
+| `status` | `pending` (queued), `judged`, `missing` (not judged yet), `error` (failed 5 times; see `docket.queue.last_error`) |
+| `answer` | choice: the option; yes/no: `yes` / `no` (at the calibrated threshold, or 0.5 before calibration) |
+| `confidence` | calibrated probability of that option (choice) or of yes (yes/no); raw before calibration |
+| `auto` | confidence ≥ the guaranteed threshold; NULL until `docket calibrate` has run |
+
+- **Triggers** queue a row only when a judged column actually changes. Application roles need no grant on the `docket` schema, because the trigger function is `SECURITY DEFINER`.
+- **The worker** skips rows whose input hasn't changed, retries with back-off, and stops at `--max-usd`.
+- **The ledger** (`docket.judgment`) is append-only: every answer ever given stays, with its input hash, model and time.
+
+Measured: 100,000 rows read in milliseconds; live median of 0.7 s from insert to answer; calibration on 200 labels. See [docs/phase1/ledger.md](../docs/phase1/ledger.md).

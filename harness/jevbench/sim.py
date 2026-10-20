@@ -148,7 +148,11 @@ def handle_request(knobs, truths, req):
     for qid in questions:
         i = int(qid[1:])
         row = rows[i] if i < len(rows) else {}
-        texts.append((qid, row.get("narrative", "") if isinstance(row, dict) else str(row)))
+        if isinstance(row, dict):
+            # CFPB rows carry `narrative`; any other row is identified by its whole JSON, so answers vary per row.
+            texts.append((qid, row["narrative"] if "narrative" in row else json.dumps(row, sort_keys=True)))
+        else:
+            texts.append((qid, str(row)))
     hashes = {qid: hashlib.md5(t.encode("utf-8")).hexdigest() for qid, t in texts}
     snap = truths.snapshot(hashes.values()) if isinstance(truths, TruthStore) else truths
     log = os.environ.get("SIM_LOG")

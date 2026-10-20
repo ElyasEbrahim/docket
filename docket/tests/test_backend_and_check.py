@@ -1,61 +1,17 @@
-import json
-import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-
 import numpy as np
 import pytest
 
 from docket.backend import Backend, BackendError
 from docket.check import CheckConfig, analyse_choice, analyse_noul, render
-
-
-class FakeSystemOne(BaseHTTPRequestHandler):
-    """Answers choice questions with the option named in the row's `want` field; fails the first request with 429."""
-    protocol_version = "HTTP/1.1"
-    requests = []
-    fail_first = True
-
-    def log_message(self, *a):
-        pass
-
-    def do_POST(self):
-        req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        cls = type(self)
-        if cls.fail_first:
-            cls.fail_first = False
-            return self._send(429, {"error": "slow down"}, {"Retry-After": "0"})
-        cls.requests.append(req)
-        rows = req["state"]["rows"]
-        answers = {}
-        for qid, q in req["questions"].items():
-            row = rows[int(qid[1:])]
-            if q["type"] == "choice":
-                opts = list(q["criteria"])
-                want = next(o for o in opts if o.startswith(row["want"]))
-                answers[qid] = {"type": "choice", "choice": want,
-                                "probabilities": {o: (0.9 if o == want else 0.1 / (len(opts) - 1)) for o in opts}}
-            else:
-                answers[qid] = {"type": "noul", "noul": 0.8 if row["want"] == "yes" else 0.2}
-        self._send(200, {"answers": answers, "usage": {"input_tokens": 100 * len(rows)}})
-
-    def _send(self, code, obj, headers=None):
-        data = json.dumps(obj).encode()
-        self.send_response(code)
-        for k, v in (headers or {}).items():
-            self.send_header(k, v)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+from docket.tests.fakes import FakeSystemOne, serve
 
 
 @pytest.fixture()
 def server():
-    FakeSystemOne.requests, FakeSystemOne.fail_first = [], True
-    srv = ThreadingHTTPServer(("127.0.0.1", 0), FakeSystemOne)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{srv.server_address[1]}/v1/systemone"
-    srv.shutdown()
+    url, shutdown = serve()
+    FakeSystemOne.fail_first = True
+    yield url
+    shutdown()
 
 
 def test_backend_batches_keeps_order_and_retries(server):
@@ -67,6 +23,16 @@ def test_backend_batches_keeps_order_and_retries(server):
     assert b.stats["requests"] == 3 and b.stats["input_tokens"] == 4500 and b.stats["retries"] == 1
     first = FakeSystemOne.requests[0]["questions"]["r0"]
     assert first["instructions"].startswith("For the record `rows[0]`") and "a: first" in first["criteria"]
+
+
+def test_backend_reuses_connections_across_calls(server):
+    FakeSystemOne.fail_first = False
+    b = Backend(server, model="fake", concurrency=4)
+    rows = [{"text": f"row {i}", "want": "a"} for i in range(40)]
+    for _ in range(3):                                            # three separate calls, 120 requests in total
+        b.judge(rows, "choice", "which?", ["a", "b"], batch_size=1)
+    assert len(FakeSystemOne.requests) == 120
+    assert len(set(FakeSystemOne.ports)) <= 4                     # at most one connection per pool thread
 
 
 def test_backend_requires_key_for_typesafe():

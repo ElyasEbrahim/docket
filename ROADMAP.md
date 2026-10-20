@@ -30,16 +30,17 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 ## Phase 1: Ledger core (weeks 3–6)
 
 - [x] `docket check` (#12): the first piece people can run on their own data; validated against Phase 0 and run on the Kubernetes triage scenario (#11)
+- [x] Migration tooling for the `docket` schema (plain SQL; PG 14–18) (#13)
+- [x] Tables: `decision`, `version` (spec + `spec_hash`), `judgment` (append-only), `current`, `queue`, `label`
+- [x] Triggers on source tables → `queue` (only when judged columns change; `SECURITY DEFINER`)
+- [x] Worker: `SKIP LOCKED` claiming with lease and token, LISTEN/NOTIFY + polling, one row per request, retries, dead-letter, spend cap
+- [x] Backend adapters: Jev and any `/v1/systemone` server (mock, simulator)
+- [x] `create_decision`, `backfill`, `docket.v_<name>` views with a `pending` state
+- [x] Calibration in the database (labels from a column or CSV; parametric calibrator; guaranteed threshold)
+- [x] CI: PostgreSQL 14–18 as a non-superuser
+- [ ] Smoke test on a real Supabase / Neon project (needs an account)
 
-- [ ] Migration tooling for the `docket` schema (plain SQL; PG 14–18)
-- [ ] Tables: `decision`, `decision_version` (spec + `spec_hash`), `judgment` (append-only), `queue`
-- [ ] Triggers on source tables → `queue` (insert/update; input-hash dedup)
-- [ ] Worker: `SKIP LOCKED` claiming, LISTEN/NOTIFY + polling, batches of 20, retries, spend guards
-- [ ] Backend adapters: `jev` (direct), `mock`
-- [ ] `create_decision`, `backfill`, `v_<decision>` views with `pending` state
-- [ ] CI: PG 14–18 containers + Supabase local + Neon branch smoke test
-
-**Exit:** a 100k-row table judged once and read in milliseconds; works unchanged on Supabase.
+**Exit:** a 100k-row table judged once and read in milliseconds; works unchanged on Supabase. *Met for the first part (0.14 ms reads at 100,000 rows); Supabase itself not yet tested, though CI runs with the same no-superuser permissions.*
 
 ## Phase 2: Trust layer (weeks 7–10)
 

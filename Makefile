@@ -3,7 +3,8 @@
 #   make up              build + start Postgres/pg-jev, the upstream mock and the simulated backend
 #   make upstream-test   run pg-jev's own regression suite (v0.2.1) in a throwaway container
 #   make smoke           pg-jev's README queries against the upstream mock
-#   make test            harness unit tests
+#   make test            unit tests
+#   make itest           ledger integration tests (non-superuser, against the local Postgres)
 #   make fetch load      CFPB sample → Postgres (N rows, default 2000)
 #   make bench           run all experiments on BACKEND (sim | mock | jev) and write the report
 #   make cachecheck      does pg-jev reuse answers across backends in one session?
@@ -21,7 +22,7 @@ COMPOSE = docker compose
 BENCH   = $(COMPOSE) run --rm bench
 PSQL    = $(COMPOSE) exec -T db psql -U postgres -d bench -v ON_ERROR_STOP=1
 
-.PHONY: up down reset psql upstream-test smoke test fetch load bench analyze curve cachecheck e2e
+.PHONY: up down reset psql upstream-test smoke test itest fetch load bench analyze curve cachecheck e2e
 
 up:
 	$(COMPOSE) up -d --build --wait db mock sim
@@ -45,6 +46,10 @@ smoke: up
 
 test:
 	$(COMPOSE) run --rm --no-deps --entrypoint python bench -m pytest -q harness/tests docket/tests
+
+itest: up
+	$(COMPOSE) run --rm -e TEST_DATABASE_URL=postgresql://postgres:bench@db:5432/bench --entrypoint python bench \
+		-m pytest -q docket/tests/test_ledger_pg.py
 
 fetch:
 	$(BENCH) fetch --n $(FETCH_N)

@@ -46,6 +46,9 @@ class Backend:
         self.concurrency, self.timeout = concurrency, timeout
         self.local = threading.local()
         self.lock = threading.Lock()
+        # One pool for the client's lifetime: its threads keep their keep-alive connections, so only the first
+        # request on each pays the TLS handshake and server-side setup (~1 s, as pg-jev measured).
+        self.pool = ThreadPoolExecutor(concurrency)
         self.stats = {"requests": 0, "rows": 0, "input_tokens": 0, "retries": 0, "seconds": 0.0}
 
     @property
@@ -123,13 +126,12 @@ class Backend:
         batches = [rows[i:i + batch_size] for i in range(0, len(rows), batch_size)]
         out = [None] * len(batches)
         done = 0
-        with ThreadPoolExecutor(self.concurrency) as ex:
-            futures = {ex.submit(self._judge_batch, b, kind, question, options): i for i, b in enumerate(batches)}
-            for fut in futures:
-                out[futures[fut]] = fut.result()
-                done += 1
-                if progress and done % max(1, len(batches) // 10) == 0:
-                    progress(done, len(batches))
+        futures = {self.pool.submit(self._judge_batch, b, kind, question, options): i for i, b in enumerate(batches)}
+        for fut in futures:
+            out[futures[fut]] = fut.result()
+            done += 1
+            if progress and done % max(1, len(batches) // 10) == 0:
+                progress(done, len(batches))
         return [a for batch in out for a in batch]
 
     def cost_usd(self, tokens=None):

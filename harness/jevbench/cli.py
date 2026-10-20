@@ -11,12 +11,13 @@
   batchcontext compare a shuffled-batch run with same-batch runs (no API calls)
   batchsize   compare a single-row run (--batch-size 1) with batched runs (no API calls)
   load-github load Kubernetes issues (from `python -m jevbench.ghissues`) into demo.k8s_issues
+  replay      insert recent Kubernetes issues into an empty demo.k8s_live, in order, at a steady rate
 """
 import argparse
 import json
 import sys
 
-from . import demo, fetch, followup, report, runner
+from . import demo, fetch, followup, replay, report, runner
 from .tasks import default_experiments
 
 
@@ -79,6 +80,12 @@ def main(argv=None):
     lg = sub.add_parser("load-github")
     lg.add_argument("--input", default="data/raw/github_kubernetes.jsonl")
 
+    rp = sub.add_parser("replay")
+    rp.add_argument("--n", type=int, default=300)
+    rp.add_argument("--rate", type=float, default=10.0, help="issues per second")
+    rp.add_argument("--options-file", default="examples/k8s_sig_options.json", help="SIGs in scope")
+    rp.add_argument("--create-only", action="store_true", help="only (re)create the empty demo.k8s_live table")
+
     sub.add_parser("cachecheck")
     sub.add_parser("experiments")
 
@@ -138,6 +145,13 @@ def main(argv=None):
                                         f"results/{batched[0]}/batch_size_{args.experiment}"))
     elif args.cmd == "load-github":
         print(json.dumps(demo.load_github(args.input), indent=2))
+    elif args.cmd == "replay":
+        if args.create_only:
+            replay.create_live_table()
+            print("demo.k8s_live created (empty)")
+        else:
+            sigs = [o["name"] for o in json.load(open(args.options_file))]
+            print(json.dumps(replay.replay(args.n, args.rate, sigs), indent=2))
     elif args.cmd == "cachecheck":
         print(json.dumps(runner.cache_check(), indent=2))
     elif args.cmd == "experiments":

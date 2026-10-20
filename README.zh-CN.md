@@ -7,7 +7,7 @@
 
 **为 Postgres 提供可持久保存、可版本化、经过校准的 AI 判断。** 你只需定义一次语义判断（例如 *"这条投诉是否与催收有关？"*），Docket 会把结果作为数据保存下来：带版本、用你自己的标注校准，并如实给出不确定性。它适用于任何 Postgres，也适用于任何判断模型。
 
-> **状态：第 1 阶段已开始。** Docket 的第一个组件已经可用：[`docket check`](docket/README.md) 可以衡量 AI 判断在*你自己的*数据表上有多可靠。产品的其余部分（持久保存、带版本的判断）尚未开发。本仓库还包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)）和第 0 阶段的基准测试（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/docket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/docket/milestones) 跟踪。
+> **状态：第 1 阶段进行中。** 已有两个组件可用：[`docket check`](docket/README.md) 衡量 AI 判断在*你自己的*数据表上有多可靠；[判断记录表（ledger）](docs/phase1/ledger.md) 把判断保存在 Postgres 中，并在数据行变化时自动保持最新。尚未开发：版本对比、计数的误差范围、其他后端的适配器、正式发布包。本仓库还包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)）和第 0 阶段的基准测试（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/docket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/docket/milestones) 跟踪。
 
 > 注：除本 README 外，其余文档目前仅有英文版。
 
@@ -51,13 +51,13 @@ python -m docket check --table public.tickets --key id --text subject,body \
 
 在两年的 Kubernetes issue 上，把 issue 分派给 10 个团队（SIG）的结果与人工标注的一致率为 **88.8%**；**90% 的 issue 可以自动分派，并以 95% 的置信度保证精确率 ≥ 90%**（[说明](docs/phase1/kubernetes-triage.md)、[报告](results/check-k8s-sig/report.md)，均为英文）。完整用法：[docket/README.md](docket/README.md)（英文）。
 
-## Docket 将会是什么
+## Docket 能做什么，以及将要做什么
 
-1. **持久保存的判断。** 结果写入只追加的记录表（ledger），并提供一个可以 join、可以建索引的视图。新增或修改的行会被自动判断，每次请求只判断一行。
-2. **版本管理。** 修改问题、标签、模型或分批方式都会产生新版本；新版本先和旧版本比较，确认无误后再替换。
-3. **用你自己的标注来校准。** 每个判断只需约 100–200 条人工标注，就能把原始分数变成名副其实的概率。
-4. **如实的数字。** 阈值附带明确的保证（如"精确率 ≥ 95%"），计数附带置信区间（预测驱动推断，prediction-powered inference）。
-5. **随处可运行。** 纯 SQL 加一个外部 worker，不需要超级用户权限，也不需要不受信任的扩展。可在 Supabase、Neon 和 RDS 上运行。
+1. **持久保存的判断。** *已实现。* 结果写入只追加的记录表（ledger），并提供一个可以 join、可以建索引的视图。新增或修改的行会被自动判断，每次请求只判断一行。在 10 万行的表上读取单行只需 0.14 毫秒；在实时数据流中，从插入到得出判断的中位时间为 0.7 秒（[详情](docs/phase1/ledger.md)，英文）。
+2. **用你自己的标注来校准。** *已实现。* 每个判断只需约 100–200 条人工标注，就能把原始分数变成名副其实的概率。视图中会显示校准后的置信度和 `auto` 标记。
+3. **如实的数字。** *阈值已实现；计数是下一步。* 阈值附带明确的保证（如"在 95% 置信度下精确率 ≥ 90%"）。带置信区间的计数（预测驱动推断，prediction-powered inference）尚未实现。
+4. **版本管理。** *部分实现。* 修改问题、标签或模型会产生新版本；切换前的新旧版本对比尚未实现。
+5. **随处可运行。** *已实现，并在 PostgreSQL 14–18 上以非超级用户身份测试通过。* 纯 SQL 加一个外部 worker，不需要不受信任的扩展。尚未在 Supabase、Neon、RDS 上实际测试。
 
 架构与 SQL 草图：[REPORT.md §4](REPORT.md#4-the-recommended-project-docket)。已做出的架构决策：[docs/adr/](docs/adr/)。
 
@@ -91,7 +91,7 @@ make bench BACKEND=jev ARGS=--yes   # 会先显示预估费用；超过 1 美元
 | [docs/adr/](docs/adr/) | 架构决策记录 |
 | [docs/phase0/](docs/phase0/) | 第 0 阶段的结论、状态、待提交给上游的问题草稿 |
 | [docs/notes/](docs/notes/) | 面向公众的文章 |
-| [docs/phase1/](docs/phase1/) | 第 1 阶段结果（Kubernetes issue 分派） |
+| [docs/phase1/](docs/phase1/) | 第 1 阶段结果：判断记录表（ledger）、Kubernetes issue 分派 |
 | [docket/](docket/) | 产品本身：`docket check`（之后还有判断记录表） |
 | [examples/](examples/) | 示例检查所用的选项文件（含说明） |
 | [harness/](harness/) | 基准测试工具：`jevbench` 命令行、模拟后端、测试 |
