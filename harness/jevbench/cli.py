@@ -12,6 +12,7 @@
   batchsize   compare a single-row run (--batch-size 1) with batched runs (no API calls)
   load-github load Kubernetes issues (from `python -m jevbench.ghissues`) into demo.k8s_issues
   replay      insert recent Kubernetes issues into an empty demo.k8s_live, in order, at a steady rate
+  ppivalidate do PPI intervals hold on real model errors? (stored answers, no API calls)
 """
 import argparse
 import json
@@ -86,6 +87,7 @@ def main(argv=None):
     rp.add_argument("--options-file", default="examples/k8s_sig_options.json", help="SIGs in scope")
     rp.add_argument("--create-only", action="store_true", help="only (re)create the empty demo.k8s_live table")
 
+    sub.add_parser("ppivalidate")
     sub.add_parser("cachecheck")
     sub.add_parser("experiments")
 
@@ -152,6 +154,9 @@ def main(argv=None):
         else:
             sigs = [o["name"] for o in json.load(open(args.options_file))]
             print(json.dumps(replay.replay(args.n, args.rate, sigs), indent=2))
+    elif args.cmd == "ppivalidate":
+        from . import ppivalidate
+        print("report:", ppivalidate.run() + "/report.md")
     elif args.cmd == "cachecheck":
         print(json.dumps(runner.cache_check(), indent=2))
     elif args.cmd == "experiments":

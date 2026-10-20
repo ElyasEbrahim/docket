@@ -7,7 +7,7 @@
 
 **为 Postgres 提供可持久保存、可版本化、经过校准的 AI 判断。** 你只需定义一次语义判断（例如 *"这条投诉是否与催收有关？"*），pgdocket 会把结果作为数据保存下来：带版本、用你自己的标注校准，并如实给出不确定性。它适用于任何 Postgres，也适用于任何判断模型。
 
-> **状态：第 1 阶段进行中。** 已有两个组件可用：[`pgdocket check`](pgdocket/README.md) 衡量 AI 判断在*你自己的*数据表上有多可靠；[判断记录表（ledger）](docs/phase1/ledger.md) 把判断保存在 Postgres 中，并在数据行变化时自动保持最新。尚未开发：版本对比、计数的误差范围、其他后端的适配器、正式发布包。本仓库还包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)）和第 0 阶段的基准测试（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/pgdocket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/pgdocket/milestones) 跟踪。
+> **状态：第 1 阶段进行中。** 已可用：[`pgdocket check`](pgdocket/README.md) 衡量 AI 判断在*你自己的*数据表上有多可靠；[判断记录表（ledger）](docs/phase1/ledger.md) 把判断保存在 Postgres 中，并在数据行变化时自动保持最新；[`pgdocket estimate`](docs/phase1/counts.md) 给出带置信区间的计数。尚未开发：版本对比、其他后端的适配器、正式发布。本仓库还包含设计文档（[REPORT.md](REPORT.md)、[架构决策记录](docs/adr/)）和第 0 阶段的基准测试（[实验结论](docs/phase0/FINDINGS-jev-1.13.md)）。进度通过 [Issues](https://github.com/ElyasEbrahim/pgdocket/issues) 和 [Milestones](https://github.com/ElyasEbrahim/pgdocket/milestones) 跟踪。
 
 > 注：除本 README 外，其余文档目前仅有英文版。
 
@@ -64,7 +64,7 @@ pgdocket check --table public.tickets --key id --text subject,body \
 
 1. **持久保存的判断。** *已实现。* 结果写入只追加的记录表（ledger），并提供一个可以 join、可以建索引的视图。新增或修改的行会被自动判断，每次请求只判断一行。在 10 万行的表上读取单行只需 0.14 毫秒；在实时数据流中，从插入到得出判断的中位时间为 0.7 秒（[详情](docs/phase1/ledger.md)，英文）。
 2. **用你自己的标注来校准。** *已实现。* 每个判断只需约 100–200 条人工标注，就能把原始分数变成名副其实的概率。视图中会显示校准后的置信度和 `auto` 标记。
-3. **如实的数字。** *阈值已实现；计数是下一步。* 阈值附带明确的保证（如"在 95% 置信度下精确率 ≥ 90%"）。带置信区间的计数（预测驱动推断，prediction-powered inference）尚未实现。
+3. **如实的数字。** *已实现。* 阈值附带明确的保证（如"在 95% 置信度下精确率 ≥ 90%"）。计数附带置信区间：`pgdocket estimate` 把模型对每一行的判断与一小部分随机抽样的人工标注结合起来（预测驱动推断，prediction-powered inference）。在真实的 Kubernetes issue 上，其区间有 98–100% 的情况覆盖了真实值，并且比只用标注的区间窄 30–50%（[详情](docs/phase1/counts.md)，英文）。
 4. **版本管理。** *部分实现。* 修改问题、标签或模型会产生新版本；切换前的新旧版本对比尚未实现。
 5. **随处可运行。** *已实现，并在 PostgreSQL 14–18 上以非超级用户身份测试通过。* 纯 SQL 加一个外部 worker，不需要不受信任的扩展。尚未在 Supabase、Neon、RDS 上实际测试。
 
@@ -100,7 +100,7 @@ make bench BACKEND=jev ARGS=--yes   # 会先显示预估费用；超过 1 美元
 | [docs/adr/](docs/adr/) | 架构决策记录 |
 | [docs/phase0/](docs/phase0/) | 第 0 阶段的结论、状态、待提交给上游的问题草稿 |
 | [docs/notes/](docs/notes/) | 面向公众的文章 |
-| [docs/phase1/](docs/phase1/) | 第 1 阶段结果：判断记录表（ledger）、Kubernetes issue 分派 |
+| [docs/phase1/](docs/phase1/) | 第 1 阶段结果：判断记录表（ledger）、带误差范围的计数、Kubernetes issue 分派 |
 | [docket/](pgdocket/) | 产品本身：`pgdocket check`（之后还有判断记录表） |
 | [examples/](examples/) | [5 分钟快速上手](examples/quickstart/README.md)，以及示例检查所用的选项文件 |
 | `pyproject.toml`、`Dockerfile` | 打包：`pgdocket` 命令和 worker 镜像（[发布流程](docs/RELEASING.md)，英文） |

@@ -44,12 +44,15 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 
 ## Phase 2: Trust layer (weeks 7–10)
 
-- [ ] `gold` table with inclusion probabilities; stratified random `review_queue`; `label()`
-- [ ] Calibrators (Platt, isotonic, temperature) fitted by the worker and stored as knots; applied in SQL
-- [ ] `set_policy`: precision/recall targets with δ via fixed-sequence testing (Learn-then-Test) and Clopper–Pearson / betting bounds
-- [ ] `estimate_count` / `estimate_share`: PPI in SQL, with refusal when gold coverage in scope is too thin
+- [x] `docket.label` with sampling recorded (`random` / `all` / `manual`); import from a column or CSV (#13, #14)
+- [ ] Stratified review queue with inclusion probabilities
+- [x] Calibrators (temperature with clamped zeros, Platt) fitted from labels, stored on the version, applied in SQL by `docket.calibrated()` (#13)
+- [x] Precision threshold with a guarantee (fixed-sequence testing, Clopper–Pearson) in `check` and `calibrate`
+- [ ] Recall targets
+- [x] `docket.estimate()` / `pgdocket estimate`: PPI++ in SQL, with a reliability flag and refusal when labels in scope can't support an interval (#14)
 - [ ] Review-budget planner: labels needed for a target CI width or guarantee
-- [ ] **Coverage-test suite** (simulation) in CI for every interval and guarantee
+- [x] **Coverage-test suite** (simulation) in CI for the threshold guarantee and the count intervals
+- [ ] Stratified label sampling (rare answers estimable with fewer labels)
 
 **Exit:** all coverage tests pass at their stated rates.
 

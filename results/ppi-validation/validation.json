@@ -1,0 +1,379 @@
+{
+  "k8s_sig": {
+    "population": 500,
+    "level": 0.95,
+    "draws": 2000,
+    "answers": {
+      "node": {
+        "true_count": 167,
+        "model_count": 162,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.9725,
+            "coverage_labels_only": 0.9595,
+            "no_interval": 0.0,
+            "width_ppi": 69.91527330418367,
+            "width_labels_only": 130.6440904181123,
+            "share_reliable": 0.987,
+            "coverage_when_reliable": 0.9817629179331308
+          },
+          "100": {
+            "coverage_ppi": 0.996,
+            "coverage_labels_only": 0.9775,
+            "no_interval": 0.0,
+            "width_ppi": 56.25300783864448,
+            "width_labels_only": 92.56819254237227,
+            "share_reliable": 1.0,
+            "coverage_when_reliable": 0.996
+          },
+          "150": {
+            "coverage_ppi": 1.0,
+            "coverage_labels_only": 0.979,
+            "no_interval": 0.0,
+            "width_ppi": 50.49666778422454,
+            "width_labels_only": 75.5010987639777,
+            "share_reliable": 1.0,
+            "coverage_when_reliable": 1.0
+          }
+        }
+      },
+      "api-machinery": {
+        "true_count": 114,
+        "model_count": 120,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.9715,
+            "coverage_labels_only": 0.9575,
+            "no_interval": 0.0,
+            "width_ppi": 65.29219793836943,
+            "width_labels_only": 115.71747599795741,
+            "share_reliable": 0.736,
+            "coverage_when_reliable": 0.9966032608695652
+          },
+          "100": {
+            "coverage_ppi": 0.987,
+            "coverage_labels_only": 0.9695,
+            "no_interval": 0.0,
+            "width_ppi": 51.91052316699791,
+            "width_labels_only": 82.25443890488894,
+            "share_reliable": 1.0,
+            "coverage_when_reliable": 0.987
+          },
+          "150": {
+            "coverage_ppi": 0.9965,
+            "coverage_labels_only": 0.9755,
+            "no_interval": 0.0,
+            "width_ppi": 46.223333028336654,
+            "width_labels_only": 67.18276681421482,
+            "share_reliable": 1.0,
+            "coverage_when_reliable": 0.9965
+          }
+        }
+      },
+      "scheduling": {
+        "true_count": 64,
+        "model_count": 56,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.9189594797398699,
+            "coverage_labels_only": 0.9014507253626813,
+            "no_interval": 0.0005,
+            "width_ppi": 46.704512753525826,
+            "width_labels_only": 91.24520672616364,
+            "share_reliable": 0.089,
+            "coverage_when_reliable": 0.9269662921348315
+          },
+          "100": {
+            "coverage_ppi": 0.969,
+            "coverage_labels_only": 0.954,
+            "no_interval": 0.0,
+            "width_ppi": 38.504931399845574,
+            "width_labels_only": 65.07105142518317,
+            "share_reliable": 0.853,
+            "coverage_when_reliable": 0.9935521688159438
+          },
+          "150": {
+            "coverage_ppi": 0.9945,
+            "coverage_labels_only": 0.9715,
+            "no_interval": 0.0,
+            "width_ppi": 34.70791643000765,
+            "width_labels_only": 53.425672255968706,
+            "share_reliable": 0.999,
+            "coverage_when_reliable": 0.9954954954954955
+          }
+        }
+      },
+      "network": {
+        "true_count": 43,
+        "model_count": 42,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.952787543947765,
+            "coverage_labels_only": 0.9477649422400803,
+            "no_interval": 0.0045,
+            "width_ppi": 37.858639422151654,
+            "width_labels_only": 74.93804712029929,
+            "share_reliable": 0.006,
+            "coverage_when_reliable": 1.0
+          },
+          "100": {
+            "coverage_ppi": 0.9655,
+            "coverage_labels_only": 0.943,
+            "no_interval": 0.0,
+            "width_ppi": 32.06578289238546,
+            "width_labels_only": 54.165778654145676,
+            "share_reliable": 0.336,
+            "coverage_when_reliable": 0.9925595238095238
+          },
+          "150": {
+            "coverage_ppi": 0.9865,
+            "coverage_labels_only": 0.974,
+            "no_interval": 0.0,
+            "width_ppi": 28.95922950081723,
+            "width_labels_only": 44.68085187847983,
+            "share_reliable": 0.883,
+            "coverage_when_reliable": 0.9949037372593431
+          }
+        }
+      },
+      "storage": {
+        "true_count": 34,
+        "model_count": 33,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.8955453149001537,
+            "coverage_labels_only": 0.8914490527393754,
+            "no_interval": 0.0235,
+            "width_ppi": 32.694874529595985,
+            "width_labels_only": 65.75928697685355,
+            "share_reliable": 0.0005,
+            "coverage_when_reliable": 1.0
+          },
+          "100": {
+            "coverage_ppi": 0.971,
+            "coverage_labels_only": 0.947,
+            "no_interval": 0.0,
+            "width_ppi": 28.190996890486442,
+            "width_labels_only": 48.99413633506436,
+            "share_reliable": 0.122,
+            "coverage_when_reliable": 0.9836065573770492
+          },
+          "150": {
+            "coverage_ppi": 0.984,
+            "coverage_labels_only": 0.9705,
+            "no_interval": 0.0,
+            "width_ppi": 25.60504172098878,
+            "width_labels_only": 40.14823773699821,
+            "share_reliable": 0.608,
+            "coverage_when_reliable": 0.9893092105263158
+          }
+        }
+      },
+      "apps": {
+        "true_count": 23,
+        "model_count": 19,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.9950953678474115,
+            "coverage_labels_only": 0.9989100817438692,
+            "no_interval": 0.0825,
+            "width_ppi": 35.92325006827756,
+            "width_labels_only": 53.795858786304635,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "100": {
+            "coverage_ppi": 0.9251632345554998,
+            "coverage_labels_only": 0.9623304871923657,
+            "no_interval": 0.0045,
+            "width_ppi": 29.176113046766694,
+            "width_labels_only": 39.71357864352674,
+            "share_reliable": 0.0075,
+            "coverage_when_reliable": 1.0
+          },
+          "150": {
+            "coverage_ppi": 0.944,
+            "coverage_labels_only": 0.9445,
+            "no_interval": 0.0,
+            "width_ppi": 25.4580241524082,
+            "width_labels_only": 33.067221684075776,
+            "share_reliable": 0.1225,
+            "coverage_when_reliable": 0.9795918367346939
+          }
+        }
+      },
+      "auth": {
+        "true_count": 17,
+        "model_count": 14,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.9988158673771462,
+            "coverage_labels_only": 0.9988158673771462,
+            "no_interval": 0.1555,
+            "width_ppi": 33.20972423862813,
+            "width_labels_only": 46.169684161721555,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "100": {
+            "coverage_ppi": 0.8698979591836735,
+            "coverage_labels_only": 0.8969387755102041,
+            "no_interval": 0.02,
+            "width_ppi": 26.471074808524623,
+            "width_labels_only": 33.028877475504444,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "150": {
+            "coverage_ppi": 0.928928928928929,
+            "coverage_labels_only": 0.9259259259259259,
+            "no_interval": 0.001,
+            "width_ppi": 23.5839388397196,
+            "width_labels_only": 28.298842955163426,
+            "share_reliable": 0.011,
+            "coverage_when_reliable": 1.0
+          }
+        }
+      },
+      "cli": {
+        "true_count": 15,
+        "model_count": 17,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 1.0,
+            "coverage_labels_only": 1.0,
+            "no_interval": 0.1995,
+            "width_ppi": 19.196605250399518,
+            "width_labels_only": 43.857084219338745,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "100": {
+            "coverage_ppi": 0.9927536231884058,
+            "coverage_labels_only": 0.8467908902691511,
+            "no_interval": 0.034,
+            "width_ppi": 17.60204970594368,
+            "width_labels_only": 30.874012666776334,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "150": {
+            "coverage_ppi": 0.9673858504766684,
+            "coverage_labels_only": 0.9688911189162067,
+            "no_interval": 0.0035,
+            "width_ppi": 16.634096807156713,
+            "width_labels_only": 26.359656515210865,
+            "share_reliable": 0.003,
+            "coverage_when_reliable": 0.6666666666666666
+          }
+        }
+      },
+      "testing": {
+        "true_count": 9,
+        "model_count": 20,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.9248979591836735,
+            "coverage_labels_only": 1.0,
+            "no_interval": 0.3875,
+            "width_ppi": 25.403557660656787,
+            "width_labels_only": 37.20031998135116,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "100": {
+            "coverage_ppi": 0.9858196256381169,
+            "coverage_labels_only": 1.0,
+            "no_interval": 0.1185,
+            "width_ppi": 19.02686611383016,
+            "width_labels_only": 23.670925904615636,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "150": {
+            "coverage_ppi": 0.9766839378238342,
+            "coverage_labels_only": 1.0,
+            "no_interval": 0.035,
+            "width_ppi": 16.60896001824172,
+            "width_labels_only": 19.411977562505232,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          }
+        }
+      },
+      "instrumentation": {
+        "true_count": 14,
+        "model_count": 17,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 1.0,
+            "coverage_labels_only": 0.9980569948186528,
+            "no_interval": 0.228,
+            "width_ppi": 22.282753813590546,
+            "width_labels_only": 43.391229847428555,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "100": {
+            "coverage_ppi": 0.9963350785340314,
+            "coverage_labels_only": 1.0,
+            "no_interval": 0.045,
+            "width_ppi": 19.75883698187232,
+            "width_labels_only": 29.916761342470732,
+            "share_reliable": 0.0,
+            "coverage_when_reliable": null
+          },
+          "150": {
+            "coverage_ppi": 0.9618473895582329,
+            "coverage_labels_only": 0.9643574297188755,
+            "no_interval": 0.004,
+            "width_ppi": 18.051522926133316,
+            "width_labels_only": 25.413316368638085,
+            "share_reliable": 0.001,
+            "coverage_when_reliable": 0.5
+          }
+        }
+      }
+    }
+  },
+  "k8s_feature": {
+    "population": 500,
+    "level": 0.95,
+    "draws": 2000,
+    "answers": {
+      "yes": {
+        "true_count": 108,
+        "model_count": 111,
+        "by_n": {
+          "50": {
+            "coverage_ppi": 0.95,
+            "coverage_labels_only": 0.9255,
+            "no_interval": 0.0,
+            "width_ppi": 72.24137375861775,
+            "width_labels_only": 113.3928686919299,
+            "share_reliable": 0.649,
+            "coverage_when_reliable": 0.9915254237288136
+          },
+          "100": {
+            "coverage_ppi": 0.982,
+            "coverage_labels_only": 0.9665,
+            "no_interval": 0.0,
+            "width_ppi": 55.44968354763629,
+            "width_labels_only": 80.58163890560292,
+            "share_reliable": 1.0,
+            "coverage_when_reliable": 0.982
+          },
+          "150": {
+            "coverage_ppi": 0.9915,
+            "coverage_labels_only": 0.985,
+            "no_interval": 0.0,
+            "width_ppi": 48.578912922831115,
+            "width_labels_only": 65.98741396963158,
+            "share_reliable": 1.0,
+            "coverage_when_reliable": 0.9915
+          }
+        }
+      }
+    }
+  }
+}

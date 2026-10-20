@@ -60,39 +60,57 @@ def _decision(conn, name):
     return {"id": r[0], "source": r[1], "key": r[2], "version": r[3], "spec": r[4]}
 
 
-def import_labels(dsn, name, column=None, csv_path=None, sample=None, seed="1"):
-    """Copy human labels into docket.label, from a column of the source table or from a key,label CSV."""
+def import_labels(dsn, name, column=None, csv_path=None, sample=None, seed="1", positive=None, random=False):
+    """Copy human labels into docket.label, from a column of the source table or from a key,label CSV.
+
+    Labels record how they were chosen: `--sample N` from a column is a uniform random sample ('random');
+    a whole column is 'all'; a CSV is 'manual' unless the caller says it was drawn at random (`random=True`,
+    e.g. a file from `pgdocket check --export-sample`). Only 'random' labels feed `estimate` by default.
+    For yes/no decisions, labels are stored as 'yes' / 'no' (`positive` is the value that means yes).
+    """
     with connect(dsn) as conn:
         d = _decision(conn, name)
-        names = option_names(d["spec"]) if d["spec"]["kind"] == "choice" else None
+        noul = d["spec"]["kind"] == "noul"
+        if noul and positive is None:
+            raise SystemExit("a yes/no decision needs --positive: the label value that means yes")
+        names = option_names(d["spec"]) if not noul else None
         if column:
             col = sql.Identifier(column)
             cond = sql.SQL(" AND {}::text = ANY(%(names)s)").format(col) if names else sql.SQL("")
+            value = (sql.SQL("CASE WHEN s.{}::text = %(pos)s THEN 'yes' ELSE 'no' END").format(col) if noul
+                     else sql.SQL("s.{}::text").format(col))
             q = sql.SQL("""
-                INSERT INTO docket.label (decision_id, row_key, label, source)
-                SELECT %(did)s, s.{key}::text, s.{col}::text, %(src)s FROM {table} s
+                INSERT INTO docket.label (decision_id, row_key, label, source, sampling)
+                SELECT %(did)s, s.{key}::text, {value}, %(src)s, %(sampling)s FROM {table} s
                 WHERE s.{col} IS NOT NULL{cond}
                 ORDER BY md5(s.{key}::text || %(seed)s) {limit}
                 ON CONFLICT (decision_id, row_key) DO UPDATE SET label = EXCLUDED.label, source = EXCLUDED.source,
-                    labeled_at = now()""").format(
-                key=sql.Identifier(d["key"]), col=col, table=sql.SQL(d["source"]), cond=cond,
+                    sampling = EXCLUDED.sampling, labeled_at = now()""").format(
+                key=sql.Identifier(d["key"]), col=col, value=value, table=sql.SQL(d["source"]), cond=cond,
                 limit=sql.SQL("LIMIT {}").format(sql.Literal(int(sample))) if sample else sql.SQL(""))
-            cur = conn.execute(q, {"did": d["id"], "src": f"column:{column}", "seed": ":" + str(seed), "names": names})
+            cur = conn.execute(q, {"did": d["id"], "src": f"column:{column}", "seed": ":" + str(seed), "names": names,
+                                   "pos": None if positive is None else str(positive),
+                                   "sampling": "random" if sample else "all"})
             return cur.rowcount
         rows = []
         with open(csv_path, newline="") as f:
             for r in csv.DictReader(f):
                 label = (r.get("label") or "").strip()
-                if label and (names is None or label in names):
-                    rows.append((d["id"], r["key"], label, "csv:" + os.path.basename(csv_path)))
+                if not label:
+                    continue
+                if noul:
+                    label = "yes" if label == str(positive) else "no"
+                elif label not in names:
+                    continue
+                rows.append((d["id"], r["key"], label, "csv:" + os.path.basename(csv_path), "random" if random else "manual"))
         with conn.cursor() as cur:
-            cur.executemany("INSERT INTO docket.label (decision_id, row_key, label, source) VALUES (%s, %s, %s, %s) "
+            cur.executemany("INSERT INTO docket.label (decision_id, row_key, label, source, sampling) VALUES (%s, %s, %s, %s, %s) "
                             "ON CONFLICT (decision_id, row_key) DO UPDATE SET label = EXCLUDED.label, "
-                            "source = EXCLUDED.source, labeled_at = now()", rows)
+                            "source = EXCLUDED.source, sampling = EXCLUDED.sampling, labeled_at = now()", rows)
         return len(rows)
 
 
-def calibrate(dsn, name, precision_target=0.9, alpha=0.05, positive="true"):
+def calibrate(dsn, name, precision_target=0.9, alpha=0.05):
     """Fit a calibrator on labeled rows that have a current answer, and store it on the active version."""
     with connect(dsn) as conn:
         d = _decision(conn, name)
@@ -107,7 +125,7 @@ def calibrate(dsn, name, precision_target=0.9, alpha=0.05, positive="true"):
             rows = [r for r in rows if r[0] in names]
             labels = [r[0] for r in rows]
         else:
-            labels = [str(r[0]).strip().lower() == str(positive).lower() for r in rows]
+            labels = [r[0] == "yes" for r in rows]                    # normalised at import
         cal = calibration.fit(spec, [r[1] for r in rows], labels, precision_target, alpha)
         conn.execute("UPDATE docket.version SET calibration = %s WHERE decision_id = %s AND version = %s",
                      (Jsonb(cal), d["id"], d["version"]))
@@ -132,3 +150,12 @@ def load_spec(kind, question, options=None, options_file=None, backend="jev", mo
     if kind == "choice":
         spec["options"] = opts
     return validate(spec)
+
+
+def estimate(dsn, name, answer=None, where=None, level=0.95, include_manual=False):
+    """Counts with error bars from docket.estimate() (prediction-powered inference)."""
+    sampling = ["random", "all", "manual"] if include_manual else ["random"]
+    with connect(dsn) as conn:
+        cur = conn.execute("SELECT * FROM docket.estimate(%s, %s, %s, %s, %s)", (name, answer, where, level, sampling))
+        cols = [c.name for c in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]

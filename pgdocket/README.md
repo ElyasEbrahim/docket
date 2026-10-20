@@ -1,9 +1,10 @@
 # pgdocket
 
-Two pieces work today:
+Three pieces work today:
 
-- **[`pgdocket check`](#docket-check)**: how trustworthy is an AI decision on your table? Read-only.
+- **[`pgdocket check`](#pgdocket-check)**: how trustworthy is an AI decision on your table? Read-only.
 - **[The ledger](#the-ledger)**: decisions stored in Postgres and kept current as rows change.
+- **[Counts with error bars](#counts-with-error-bars)**: how many rows truly have each answer, with a confidence interval.
 
 # `pgdocket check`
 
@@ -113,3 +114,31 @@ WHERE status = 'judged' AND auto;            -- the answers you can act on witho
 - **The ledger** (`docket.judgment`) is append-only: every answer ever given stays, with its input hash, model and time.
 
 Measured: 100,000 rows read in milliseconds; live median of 0.7 s from insert to answer; calibration on 200 labels. See [docs/phase1/ledger.md](../docs/phase1/ledger.md).
+
+# Counts with error bars
+
+`pgdocket estimate` answers "how many rows truly have this answer?" with a confidence interval. It combines the model's answer on every judged row with a **random sample** of human labels that corrects the model's mistakes (prediction-powered inference, power-tuned PPI++).
+
+```bash
+pgdocket label triage --from-column team --sample 150        # random sample, recorded as such
+pgdocket estimate triage                                     # every option
+pgdocket estimate triage --answer billing --where "created_at >= '2026-07-01'" --level 0.9
+```
+
+```sql
+SELECT answer, model_count, estimate, ci_low, ci_high, reliable FROM docket.estimate('triage');
+```
+
+| Column | Meaning |
+| --- | --- |
+| `model_count` | how many judged rows the model gave this answer (biased by its mistakes) |
+| `estimate`, `ci_low`, `ci_high` | PPI++ estimate of the true count, with its interval |
+| `labels_only_low/high` | the interval from the labels alone, for comparison |
+| `labels`, `labels_with` | labels used, and how many of them had this answer |
+| `lambda` | how much the estimate leans on the model (0 = labels only, 1 = full PPI) |
+| `reliable` | false when fewer than 10 labels have (or lack) the answer: the interval may be too narrow |
+| `note` | why something is missing or unreliable |
+
+- **Only labels drawn at random count.** `--sample N` records labels as random, and so does a CSV imported with `--random`. Everything else needs `--include-manual`.
+- **No labelled example of an answer means no interval.** Nothing measures how often the model is wrong there.
+- **Validation:** coverage tests run in CI, and on 500 real Kubernetes issues the intervals held 98–100 % when reliable and were 30–50 % narrower than labels alone. See [docs/phase1/counts.md](../docs/phase1/counts.md).

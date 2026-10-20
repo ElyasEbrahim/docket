@@ -8,6 +8,7 @@
   pgdocket worker     judge queued rows and keep the ledger current
   pgdocket label      import human labels (from a column or a key,label CSV)
   pgdocket calibrate  fit a calibrator and a guaranteed threshold from the labels
+  pgdocket estimate   how many rows truly have each answer, with a confidence interval
   pgdocket status     decisions, queue depth, errors, labels, tokens
   pgdocket drop       remove a decision (triggers, view, ledger); the source table is untouched
 """
@@ -94,11 +95,20 @@ def main(argv=None):
     src.add_argument("--csv")
     lb.add_argument("--sample", type=int, default=None, help="with --from-column: a random sample of this many rows")
     lb.add_argument("--seed", default="1")
+    lb.add_argument("--positive", help="yes/no decisions: the label value that means yes")
+    lb.add_argument("--random", action="store_true",
+                    help="with --csv: the rows were drawn at random (e.g. by pgdocket check --export-sample)")
     ca = sub.add_parser("calibrate", help="fit a calibrator and a guaranteed threshold")
     dsn_arg(ca)
     ca.add_argument("name")
     ca.add_argument("--precision-target", type=float, default=0.9)
-    ca.add_argument("--positive", default="true", help="noul: the label value that means yes")
+    es = sub.add_parser("estimate", help="counts with confidence intervals (prediction-powered inference)")
+    dsn_arg(es)
+    es.add_argument("name")
+    es.add_argument("--answer", help="one option (or 'yes'); default: every option")
+    es.add_argument("--where", help="SQL condition on the source table, e.g. \"created_at >= '2026-07-01'\"")
+    es.add_argument("--level", type=float, default=0.95)
+    es.add_argument("--include-manual", action="store_true", help="also use labels not drawn at random (intervals may be biased)")
     st = sub.add_parser("status", help="decisions, queue, errors, labels, tokens")
     dsn_arg(st)
     dr = sub.add_parser("drop", help="remove a decision and its ledger")
@@ -115,7 +125,7 @@ def main(argv=None):
         reanalyze(a.folder, a.precision_target)
         print(f"report: {a.folder}/report.md")
         return
-    if a.cmd in ("install", "create", "worker", "label", "calibrate", "status", "drop"):
+    if a.cmd in ("install", "create", "worker", "label", "calibrate", "estimate", "status", "drop"):
         if not a.dsn:
             sys.exit("no database: pass --dsn or set DATABASE_URL")
         return _ledger_command(a)
@@ -156,14 +166,35 @@ def _ledger_command(a):
                         concurrency=a.concurrency, max_usd=a.max_usd, poll=a.poll).run(once=a.once)
         print(json.dumps(totals))
     elif a.cmd == "label":
-        n = ledger.import_labels(a.dsn, a.name, column=a.from_column, csv_path=a.csv, sample=a.sample, seed=a.seed)
-        print(f"{n} labels imported for {a.name}")
+        n = ledger.import_labels(a.dsn, a.name, column=a.from_column, csv_path=a.csv, sample=a.sample, seed=a.seed,
+                                 positive=a.positive, random=a.random)
+        kind = "random sample" if (a.sample or a.random) else ("whole column" if a.from_column else "manual")
+        print(f"{n} labels imported for {a.name} ({kind})")
     elif a.cmd == "calibrate":
-        cal = ledger.calibrate(a.dsn, a.name, a.precision_target, positive=a.positive)
+        cal = ledger.calibrate(a.dsn, a.name, a.precision_target)
         thr = (f"auto-accept at ≥ {cal['threshold']:.3f}: {100 * cal['coverage']:.1f} % of rows with precision "
                f"≥ {100 * cal['precision_target']:.0f} % (95 % confidence)" if cal["threshold"] is not None
                else f"no threshold reaches {100 * cal['precision_target']:.0f} % precision with {cal['n_labels']} labels")
         print(f"{a.name}: {cal['n_labels']} labels · calibration error {cal['ece_raw']:.3f} → {cal['ece_calibrated']:.3f} · {thr}")
+    elif a.cmd == "estimate":
+        rows = ledger.estimate(a.dsn, a.name, a.answer, a.where, a.level, a.include_manual)
+        lvl = f"{100 * a.level:.0f} %"
+        print(f"{a.name}: how many judged rows truly have each answer ({lvl} intervals)"
+              + (f", where {a.where}" if a.where else ""))
+        print(f"{'answer':<22} {'model says':>10}  {'estimate':>9}  {lvl + ' interval':>20}  {'labels only':>20}  {'labels':>9}")
+        for r in rows:
+            ci = lambda lo, hi: "–" if lo is None else f"{lo:,.0f} – {hi:,.0f}"
+            est = "–" if r["estimate"] is None else f"{r['estimate']:,.0f}"
+            flag = "" if r["reliable"] else "  ⚠"
+            print(f"{r['answer']:<22} {r['model_count']:>10,.0f}  {est:>9}  {ci(r['ci_low'], r['ci_high']):>20}  "
+                  f"{ci(r['labels_only_low'], r['labels_only_high']):>20}  {r['labels_with']:>3}/{r['labels']:<5}{flag}")
+        if rows:
+            print(f"judged rows in scope: {rows[0]['judged']:,} of {rows[0]['rows_in_scope']:,}")
+        for r in rows:
+            if r["note"]:
+                print(f"  {r['answer']}: {r['note']}")
+        if any(not r["reliable"] for r in rows):
+            print("⚠ fewer than 10 labelled rows with or without that answer: label more rows before relying on it")
     elif a.cmd == "drop":
         if not a.yes:
             sys.exit(f"this deletes decision {a.name} and its whole ledger; re-run with --yes")

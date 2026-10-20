@@ -61,7 +61,7 @@ def _view(dsn):
 def test_install_is_idempotent_and_needs_no_superuser(env):
     with psycopg.connect(env["owner"]) as c:
         assert c.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user").fetchone()[0] is False
-    assert ledger.install(env["owner"]) == ["001"]
+    assert ledger.install(env["owner"]) == ["001", "002"]
     assert ledger.install(env["owner"]) == []
 
 
@@ -175,3 +175,75 @@ def test_drop_decision_removes_triggers_view_and_ledger(env):
     with psycopg.connect(env["owner"]) as c:
         assert c.execute("SELECT count(*) FROM docket.queue").fetchone()[0] == 0
         assert c.execute("SELECT count(*) FROM shop.tickets").fetchone()[0] > 90   # the source table is untouched
+
+
+def _counts_setup(env):
+    """400 orders; the fake model answers the team named in `body`, which disagrees with the human `team` for 1 in 4."""
+    teams = ["billing", "technical", "sales"]
+    with psycopg.connect(env["owner"], autocommit=True) as c:
+        c.execute("CREATE TABLE shop.orders (id int PRIMARY KEY, body text, team text, urgent text)")
+        rows = [(i, teams[i % 3] if i % 4 else teams[(i + 1) % 3], teams[i % 3], "yes" if i % 5 == 0 else "no")
+                for i in range(1, 401)]
+        with c.cursor() as cur:
+            cur.executemany("INSERT INTO shop.orders VALUES (%s, %s, %s, %s)", rows)
+    spec = dict(_spec(env["url"]))
+    ledger.create(env["owner"], "counts", "shop.orders", "id", ["body"], spec)
+    Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+
+
+def test_estimate_matches_python_and_respects_sampling(env):
+    from pgdocket.estimate import ppi_share
+    _counts_setup(env)
+    # whole-column labels are not a random sample: refused by default
+    ledger.import_labels(env["owner"], "counts", column="team")
+    rows = ledger.estimate(env["owner"], "counts")
+    assert all(r["estimate"] is None and "no random-sample labels" in r["note"] for r in rows)
+    assert all(r["estimate"] is not None for r in ledger.estimate(env["owner"], "counts", include_manual=True))
+    # a random sample of 120
+    with psycopg.connect(env["owner"], autocommit=True) as c:
+        c.execute("DELETE FROM docket.label WHERE decision_id = (SELECT id FROM docket.decision WHERE name = 'counts')")
+    assert ledger.import_labels(env["owner"], "counts", column="team", sample=120, seed="7") == 120
+    rows = {r["answer"]: r for r in ledger.estimate(env["owner"], "counts")}
+    with psycopg.connect(env["owner"]) as c:
+        data = c.execute(
+            "SELECT v.answer, t.team, l.label IS NOT NULL FROM docket.v_counts v JOIN shop.orders t ON t.id = v.key "
+            "LEFT JOIN docket.label l ON l.decision_id = (SELECT id FROM docket.decision WHERE name = 'counts') "
+            "AND l.row_key = v.key::text AND l.sampling = 'random'").fetchall()
+    for answer in ["billing", "technical", "sales"]:
+        f = [int(a == answer) for a, _, _ in data]
+        y = [int(t == answer) for _, t, _ in data]
+        lab = [x for _, _, x in data]
+        py = ppi_share([fi for fi, l in zip(f, lab) if not l], [fi for fi, l in zip(f, lab) if l],
+                       [yi for yi, l in zip(y, lab) if l])
+        r = rows[answer]
+        assert r["labels"] == 120 and r["judged"] == 400
+        assert r["estimate"] == pytest.approx(py["estimate"] * 400, rel=1e-9)
+        assert r["ci_low"] == pytest.approx(py["ci_low"] * 400, rel=1e-9)
+        assert r["ci_high"] == pytest.approx(py["ci_high"] * 400, rel=1e-9)
+        assert r["labels_only_low"] == pytest.approx(py["labels_low"] * 400, rel=1e-9)
+        assert r["lambda"] == pytest.approx(py["lam"], rel=1e-9, abs=1e-12)
+        assert r["reliable"] == py["reliable"]
+        truth = sum(y)
+        assert r["ci_low"] <= truth <= r["ci_high"]                      # this draw covers the truth
+
+
+def test_estimate_scope_uses_only_labels_in_scope(env):
+    rows = ledger.estimate(env["owner"], "counts", answer="billing", where="id <= 200")
+    with psycopg.connect(env["owner"]) as c:
+        n = c.execute("SELECT count(*) FROM docket.label l JOIN docket.decision d ON d.id = l.decision_id "
+                      "WHERE d.name = 'counts' AND l.sampling = 'random' AND l.row_key::int <= 200").fetchone()[0]
+    assert rows[0]["judged"] == 200 and rows[0]["labels"] == n
+
+
+def test_yes_no_labels_are_normalised_and_estimated(env):
+    spec = {"kind": "noul", "question": "the order is urgent", "backend": env["url"], "model": "fake", "batch_size": 1}
+    ledger.create(env["owner"], "urgent", "shop.orders", "id", ["body"], spec)
+    Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+    with pytest.raises(SystemExit):
+        ledger.import_labels(env["owner"], "urgent", column="urgent", sample=150)          # needs --positive
+    ledger.import_labels(env["owner"], "urgent", column="urgent", sample=150, positive="yes")
+    with psycopg.connect(env["owner"]) as c:
+        assert {r[0] for r in c.execute("SELECT DISTINCT label FROM docket.label l JOIN docket.decision d "
+                                        "ON d.id = l.decision_id WHERE d.name = 'urgent'")} == {"yes", "no"}
+    r = ledger.estimate(env["owner"], "urgent")[0]
+    assert r["answer"] == "yes" and r["labels"] == 150 and r["estimate"] is not None
