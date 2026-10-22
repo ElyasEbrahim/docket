@@ -71,13 +71,15 @@ pgdocket report results/check-<timestamp> --precision-target 0.85
 
 Thresholds are tested from strictest to loosest. Each candidate accepts a fixed share of rows (5 %, 10 %, …), chosen from the scores, not the labels. The chosen threshold is the loosest one whose precision passes a one-sided Clopper–Pearson test at 95 %, stopping at the first failure. This fixed-sequence procedure keeps the chance of *any* false claim at 5 % without a multiple-testing correction.
 
+The threshold applies to the **model's own score**: the top probability for a choice, the yes-probability for a yes/no question. That score doesn't depend on the labels, so the test holds exactly. `pgdocket calibrate` stores the same kind of threshold, and the ledger's `auto` column applies it. Reports made before 2026-10-22 used cross-fitted calibrated scores; `pgdocket report <folder>` re-analyses them for free.
+
 It assumes the labeled sample is representative of the rows the threshold will be applied to. If the data drifts, run the check again.
 
 ## Example reports
 
 Real data, real model (jev-1.13.0), October 2026:
 
-- [Kubernetes issues → which SIG should handle it](../results/check-k8s-sig/report.md): 88.8 % agreement; 90 % of issues can be auto-routed with precision ≥ 90 % guaranteed.
+- [Kubernetes issues → which SIG should handle it](../results/check-k8s-sig/report.md): 88.8 % agreement; 90 % of issues can be auto-routed with precision ≥ 90 % guaranteed (56 % at ≥ 95 %).
 - [Kubernetes issues → is it a feature request?](../results/check-k8s-feature/report.md): AUROC 0.97; 80 % precision catches 82 % of feature requests.
 - [CFPB complaints → which financial product?](../results/check-cfpb-product/report.md): reproduces the Phase 0 benchmark (79.8 % vs 79.3 %).
 

@@ -56,7 +56,7 @@ pgdocket check --table public.tickets --key id --text subject,body \
   --options billing,technical,security,sales --label-column team --yes
 ```
 
-On two years of Kubernetes issues, routing to 10 teams (SIGs) agreed with the human labels **88.8 %** of the time. **90 % of issues could be auto-routed with precision ≥ 90 % guaranteed** at 95 % confidence ([write-up](docs/phase1/kubernetes-triage.md), [report](results/check-k8s-sig/report.md)). Full usage: [pgdocket/README.md](pgdocket/README.md).
+On two years of Kubernetes issues, routing to 10 teams (SIGs) agreed with the human labels **88.8 %** of the time. **90 % of issues could be auto-routed with precision ≥ 90 % guaranteed** at 95 % confidence, or 56 % at ≥ 95 % ([write-up](docs/phase1/kubernetes-triage.md), [report](results/check-k8s-sig/report.md)). Full usage: [pgdocket/README.md](pgdocket/README.md).
 
 ## What pgdocket does, and will do
 

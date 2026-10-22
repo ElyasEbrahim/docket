@@ -295,6 +295,8 @@ def precision_threshold(score, correct, target=0.9, alpha=0.05, grid=20, min_acc
     chosen, tested = None, []
     for i in range(1, grid + 1):
         t = float(np.quantile(score, 1 - i / grid))
+        if tested and t == tested[-1]["threshold"]:      # tied scores: the same test again adds nothing
+            continue
         acc = score >= t
         n = int(acc.sum())
         if n < min_accept:

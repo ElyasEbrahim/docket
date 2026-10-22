@@ -335,14 +335,15 @@
       "chosen": null,
       "tested": [
         {
-          "threshold": 0.8969880752234831,
-          "accepted": 101,
-          "coverage": 0.202,
-          "precision": 0.900990099009901,
-          "lower_bound": 0.8378454281268217
+          "threshold": 1.0,
+          "accepted": 254,
+          "coverage": 0.508,
+          "precision": 0.9173228346456693,
+          "lower_bound": 0.883125076230039
         }
       ]
     },
+    "threshold_on": "raw score",
     "ladder": [
       {
         "target": 0.95,
@@ -356,22 +357,22 @@
       },
       {
         "target": 0.85,
-        "threshold": null,
-        "coverage": 0.0
+        "threshold": 0.95,
+        "coverage": 0.702
       },
       {
         "target": 0.8,
-        "threshold": 0.6730669053024371,
-        "coverage": 0.85
+        "threshold": 0.79,
+        "coverage": 0.856
       },
       {
         "target": 0.75,
-        "threshold": 0.30498001364751404,
+        "threshold": 0.33,
         "coverage": 1.0
       },
       {
         "target": 0.7,
-        "threshold": 0.30498001364751404,
+        "threshold": 0.33,
         "coverage": 1.0
       }
     ],
@@ -387,5 +388,9 @@
     "projected_usd_table": 0.04777852800000001,
     "projected_usd_per_million_rows": 23.889264000000004,
     "seconds": 10.688778400421143
+  },
+  "reanalysed": {
+    "at": "2026-10-22T11:14:22+00:00",
+    "docket_version": "0.1.0a1"
   }
 }

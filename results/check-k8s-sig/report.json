@@ -355,7 +355,7 @@
       "alpha": 0.05,
       "min_accept": 58,
       "chosen": {
-        "threshold": 0.7327579288182021,
+        "threshold": 0.7689999999999999,
         "accepted": 450,
         "coverage": 0.9,
         "precision": 0.9244444444444444,
@@ -363,155 +363,93 @@
       },
       "tested": [
         {
-          "threshold": 0.9591416282073417,
-          "accepted": 117,
-          "coverage": 0.234,
-          "precision": 0.9743589743589743,
-          "lower_bound": 0.9350649852549254
+          "threshold": 1.0,
+          "accepted": 279,
+          "coverage": 0.558,
+          "precision": 0.989247311827957,
+          "lower_bound": 0.9724450751611204
         },
         {
-          "threshold": 0.9591416282073417,
-          "accepted": 117,
-          "coverage": 0.234,
-          "precision": 0.9743589743589743,
-          "lower_bound": 0.9350649852549254
+          "threshold": 0.99,
+          "accepted": 328,
+          "coverage": 0.656,
+          "precision": 0.9664634146341463,
+          "lower_bound": 0.9450993973774516
         },
         {
-          "threshold": 0.9567491507890958,
-          "accepted": 178,
-          "coverage": 0.356,
-          "precision": 0.9719101123595506,
-          "lower_bound": 0.9418488910338279
+          "threshold": 0.97,
+          "accepted": 356,
+          "coverage": 0.712,
+          "precision": 0.9606741573033708,
+          "lower_bound": 0.9392032435201696
         },
         {
-          "threshold": 0.9567491507890958,
-          "accepted": 178,
-          "coverage": 0.356,
-          "precision": 0.9719101123595506,
-          "lower_bound": 0.9418488910338279
+          "threshold": 0.95,
+          "accepted": 376,
+          "coverage": 0.752,
+          "precision": 0.949468085106383,
+          "lower_bound": 0.9267320631837579
         },
         {
-          "threshold": 0.9567491507890958,
-          "accepted": 178,
-          "coverage": 0.356,
-          "precision": 0.9719101123595506,
-          "lower_bound": 0.9418488910338279
+          "threshold": 0.9,
+          "accepted": 404,
+          "coverage": 0.808,
+          "precision": 0.9381188118811881,
+          "lower_bound": 0.9146416353657578
         },
         {
-          "threshold": 0.9523417062911129,
-          "accepted": 241,
-          "coverage": 0.482,
-          "precision": 0.9626556016597511,
-          "lower_bound": 0.93573896198228
-        },
-        {
-          "threshold": 0.9523417062911129,
-          "accepted": 241,
-          "coverage": 0.482,
-          "precision": 0.9626556016597511,
-          "lower_bound": 0.93573896198228
-        },
-        {
-          "threshold": 0.9517194581880886,
-          "accepted": 257,
-          "coverage": 0.514,
-          "precision": 0.9610894941634242,
-          "lower_bound": 0.9348930056071161
-        },
-        {
-          "threshold": 0.9480005948161844,
-          "accepted": 316,
-          "coverage": 0.632,
-          "precision": 0.9620253164556962,
-          "lower_bound": 0.9391980730383994
-        },
-        {
-          "threshold": 0.9480005948161844,
-          "accepted": 316,
-          "coverage": 0.632,
-          "precision": 0.9620253164556962,
-          "lower_bound": 0.9391980730383994
-        },
-        {
-          "threshold": 0.946970613865777,
-          "accepted": 326,
-          "coverage": 0.652,
-          "precision": 0.9601226993865031,
-          "lower_bound": 0.9373461842533963
-        },
-        {
-          "threshold": 0.9342012150360977,
-          "accepted": 350,
-          "coverage": 0.7,
-          "precision": 0.9571428571428572,
-          "lower_bound": 0.9347732548430059
-        },
-        {
-          "threshold": 0.9108321622713343,
-          "accepted": 375,
-          "coverage": 0.75,
-          "precision": 0.9493333333333334,
-          "lower_bound": 0.9265390419728615
-        },
-        {
-          "threshold": 0.8818748506765713,
-          "accepted": 400,
-          "coverage": 0.8,
-          "precision": 0.94,
-          "lower_bound": 0.9166539212787446
-        },
-        {
-          "threshold": 0.8113549047724037,
+          "threshold": 0.8485,
           "accepted": 425,
           "coverage": 0.85,
           "precision": 0.9317647058823529,
           "lower_bound": 0.9081255006558089
         },
         {
-          "threshold": 0.7327579288182021,
+          "threshold": 0.7689999999999999,
           "accepted": 450,
           "coverage": 0.9,
           "precision": 0.9244444444444444,
           "lower_bound": 0.9006813185503956
         },
         {
-          "threshold": 0.5397196700182514,
-          "accepted": 475,
-          "coverage": 0.95,
-          "precision": 0.8989473684210526,
-          "lower_bound": 0.873259483231926
+          "threshold": 0.56,
+          "accepted": 476,
+          "coverage": 0.952,
+          "precision": 0.8970588235294118,
+          "lower_bound": 0.871224755324775
         }
       ]
     },
+    "threshold_on": "raw score",
     "ladder": [
       {
         "target": 0.95,
-        "threshold": null,
-        "coverage": 0.0
+        "threshold": 1.0,
+        "coverage": 0.558
       },
       {
         "target": 0.9,
-        "threshold": 0.7327579288182021,
+        "threshold": 0.7689999999999999,
         "coverage": 0.9
       },
       {
         "target": 0.85,
-        "threshold": 0.3923771353595988,
+        "threshold": 0.4,
         "coverage": 1.0
       },
       {
         "target": 0.8,
-        "threshold": 0.3923771353595988,
+        "threshold": 0.4,
         "coverage": 1.0
       },
       {
         "target": 0.75,
-        "threshold": 0.3923771353595988,
+        "threshold": 0.4,
         "coverage": 1.0
       },
       {
         "target": 0.7,
-        "threshold": 0.3923771353595988,
+        "threshold": 0.4,
         "coverage": 1.0
       }
     ],
@@ -535,5 +473,9 @@
     "projected_usd_table": 0.16625581627200003,
     "projected_usd_per_million_rows": 42.805308000000004,
     "seconds": 17.548314571380615
+  },
+  "reanalysed": {
+    "at": "2026-10-22T11:14:21+00:00",
+    "docket_version": "0.1.0a1"
   }
 }

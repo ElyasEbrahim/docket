@@ -26,7 +26,7 @@ Each check: 500 labeled issues, one row per request, plus 100 re-asked and 100 s
 | --- | ---: | ---: | ---: |
 | Agreement / ranking | **88.8 %** accuracy [86.0, 91.4], macro-F1 0.83 | **AUROC 0.966** [0.945, 0.984] | 79.8 % (Phase 0: 79.3 %) |
 | Calibration error, raw → calibrated | 0.073 → **0.029** | 0.037 → **0.013** | 0.133 → 0.037 |
-| Guaranteed auto-accept (95 % confidence) | **90 % precision on 90 % of issues** | 80 % precision catching 82 % of feature requests; 85 % precision catching 65 % | 80 % precision on 85 % of complaints |
+| Guaranteed auto-accept (95 % confidence) | **90 % precision on 90 % of issues; 95 % on 56 %** | 80 % precision catching 82 % of feature requests; 85 % precision catching 66 % | 80 % precision on 86 % of complaints; 85 % on 70 % |
 | Answers changed when asked again | **1 %** (of 100) | 1 % (of 100) | – |
 | Answers changed at 20 rows per request | **15 %** (of 100); accuracy 88 → 80 % | 8 % (of 100) | – |
 | Tokens per row · per million rows | 1,019 · $43 | 839 · $35 | 569 · $24 |
@@ -34,11 +34,17 @@ Each check: 500 labeled issues, one row per request, plus 100 re-asked and 100 s
 
 Reports: [SIG routing](../../results/check-k8s-sig/report.md) · [feature request](../../results/check-k8s-feature/report.md) · [CFPB validation](../../results/check-cfpb-product/report.md).
 
+*Update 2026-10-22 (#16):* the reports were re-analysed from their saved answers, with no API calls. Thresholds are now chosen on the model's own score rather than on cross-fitted calibrated scores, the same rule `pgdocket calibrate` uses. Only the thresholds changed. Two targets became reachable:
+- **95 % precision on 56 % of issues.** Jev gave exactly 1.0 to 279 of the 500 issues, and 98.9 % of those were routed right.
+- **85 % precision on 70 % of complaints.**
+
+Cross-fitting with a different temperature per fold had spread those tied scores apart at random, which weakened the top of the ranking.
+
 ## What this adds to Phase 0
 
 1. **The tool measures what the benchmark measured.** On the same CFPB rows, `pgdocket check` gives 79.8 % accuracy against 79.3 % in Phase 0, with the same calibration error before and after (within noise) and the same cost per row.
 2. **Routing works well on technical text.** Ten SIGs with one-line descriptions: 88.8 % agreement with the labels people applied. The largest groups (node, api-machinery, scheduling, network, storage) are 86–92 % recall. Small or fuzzy groups are weaker: auth 59 %, apps 70 %, and "testing" is over-assigned with 40 % precision.
-3. **A guarantee people can use:** a team could auto-route 90 % of incoming issues with precision ≥ 90 % at 95 % confidence, and send 10 % to a person. That's the kind of statement pgdocket is meant to produce.
+3. **A guarantee people can use:** a team could auto-route 90 % of incoming issues with precision ≥ 90 % at 95 % confidence, and send 10 % to a person. Or, stricter, 56 % at ≥ 95 %. That's the kind of statement pgdocket is meant to produce.
 4. **Batching hurts again, on a second dataset.** 20 rows per request changed 15 % of routing answers and cost 8 points of accuracy on the 100 tested issues. That supports ADR 0002's one-row-per-request default.
 5. **One row per request looks much more stable.** Only 1 % of answers changed when asked again, against 2.9–3.8 % between batched runs on CFPB. This is from 100 rows on a different dataset, so it's an indication, not yet a measurement.
 6. **Calibration needs differ by task.** Routing was over-confident mostly because of exact-zero probabilities: clamping them did most of the work, and the fitted temperature was 1.00. The yes/no question was already fairly well calibrated (0.037).

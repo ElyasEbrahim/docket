@@ -192,8 +192,10 @@ def analyse_choice(cfg, sample, answers):
         "reliability_raw": M.reliability_bins(conf, correct, 10),
         "reliability_calibrated": M.reliability_bins(conf_cal, correct_cal, 10),
         "exact_zeros": int((P == 0).sum()), "label_prob_zero": int((P[np.arange(len(y)), y] == 0).sum()),
-        "threshold": M.precision_threshold(conf_cal, correct_cal, cfg.precision_target, cfg.alpha),
-        "ladder": _ladder(conf_cal, correct_cal, cfg.alpha),
+        # thresholds on the model's own score, which doesn't depend on the labels: the guarantee holds exactly and
+        # is the one `pgdocket calibrate` stores and the view applies (#16)
+        "threshold": M.precision_threshold(conf, correct, cfg.precision_target, cfg.alpha), "threshold_on": "raw score",
+        "ladder": _ladder(conf, correct, cfg.alpha),
         "zeros_clamped": bool((P == 0).any()),
         "_top": pred,
     }
@@ -203,9 +205,9 @@ def analyse_noul(cfg, sample, answers):
     p = np.array([float(a["noul"]) for a in answers])
     y = np.array([s["label"] == cfg.positive for s in sample], float)
     p_cal = M.crossfit_binary(p, y, "platt")
-    thr = M.precision_threshold(p_cal, y, cfg.precision_target, cfg.alpha)
+    thr = M.precision_threshold(p, y, cfg.precision_target, cfg.alpha)          # on the raw P(yes), as above
     if thr["chosen"]:
-        acc = p_cal >= thr["chosen"]["threshold"]
+        acc = p >= thr["chosen"]["threshold"]
         thr["chosen"]["recall"] = float((acc & (y == 1)).sum() / max(y.sum(), 1))
     prec, rec, f1 = M.prf(p >= 0.5, y.astype(bool))
     return {
@@ -214,7 +216,7 @@ def analyse_noul(cfg, sample, answers):
         "ece_raw": M.ece(p, y, 15), "ece_raw_ci": M.bootstrap_ci(lambda a, b: M.ece(a, b, 15), [p, y]),
         "ece_calibrated": M.ece(p_cal, y, 15),
         "reliability_raw": M.reliability_bins(p, y, 10), "reliability_calibrated": M.reliability_bins(p_cal, y, 10),
-        "threshold": thr, "ladder": _ladder(p_cal, y, cfg.alpha, positives=y), "_p": p,
+        "threshold": thr, "threshold_on": "raw score", "ladder": _ladder(p, y, cfg.alpha, positives=y), "_p": p,
     }
 
 
@@ -316,6 +318,8 @@ def reanalyze(out, precision_target=None):
     analysis.pop("_top", None)
     analysis.pop("_p", None)
     result["analysis"], result["config"] = analysis, {k: v for k, v in asdict(cfg).items() if k != "dsn"}
+    result["reanalysed"] = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                            "docket_version": __import__("pgdocket").__version__}
     with open(os.path.join(out, "report.json"), "w") as f:
         json.dump(result, f, indent=2, default=float)
     with open(os.path.join(out, "report.md"), "w") as f:
@@ -353,8 +357,10 @@ def recommendations(r):
     if th["chosen"]:
         c = th["chosen"]
         extra = f", catching {_pct(c.get('recall'))} of the positives" if "recall" in c else ""
-        out.append(f"**Auto-accept answers with calibrated {'confidence' if cfg['kind'] == 'choice' else 'probability'} "
-                   f"≥ {c['threshold']:.2f}.** That covers {_pct(c['coverage'])} of rows{extra}, with precision "
+        score = (("model's top probability" if cfg["kind"] == "choice" else "model's yes-probability")
+                 if a.get("threshold_on") == "raw score" else
+                 ("calibrated confidence" if cfg["kind"] == "choice" else "calibrated probability"))
+        out.append(f"**Auto-accept answers whose {score} is ≥ {c['threshold']:.2f}.** That covers {_pct(c['coverage'])} of rows{extra}, with precision "
                    f"≥ {_pct(th['target'])} at {100 * (1 - th['alpha']):.0f} % confidence (observed {_pct(c['precision'])}). "
                    "Send the rest to a person.")
     else:
@@ -386,7 +392,9 @@ def render(r):
          f"`{cfg['label_column'] or cfg['label_file']}`" + (f" (yes = `{cfg['positive']}`)" if cfg["kind"] == "noul" else ""),
          f"- Backend `{r['backend']['url']}` · model `{r['backend']['model']}` · {r['backend']['batch_size']} row(s) per request",
          f"- {r['sample']['labeled_rows']} labeled rows sampled from {r['sample']['rows_in_scope']:,} in scope "
-         f"(table: {r['sample']['table_rows']:,} rows) · {r['created_at']} · docket {r['docket_version']}", "",
+         f"(table: {r['sample']['table_rows']:,} rows) · {r['created_at']} · docket {r['docket_version']}"
+         + (f" · re-analysed {r['reanalysed']['at']} with docket {r['reanalysed']['docket_version']} (no API calls)"
+            if r.get("reanalysed") else ""), "",
          "## Recommendations", ""]
     L += [f"{i}. {t}" for i, t in enumerate(recommendations(r), 1)]
     L += ["", "## Agreement with your labels", ""]
@@ -419,7 +427,12 @@ def render(r):
           f"Thresholds were tested from strictest to loosest (accepting 5 %, 10 %, … of rows, starting at "
           f"{th.get('min_accept', 20)} rows so the target is provable); the loosest one whose "
           f"precision is ≥ {_pct(th['target'])} at {100 * (1 - th['alpha']):.0f} % confidence (one-sided Clopper–Pearson) "
-          "is chosen. This assumes the labeled sample is representative of the rows it will be applied to.", "",
+          "is chosen. This assumes the labeled sample is representative of the rows it will be applied to."
+          + (" Thresholds apply to the model's own score (top probability, or yes-probability), which doesn't depend "
+             "on the labels, so the guarantee holds exactly; `pgdocket calibrate` stores the same kind of threshold."
+             if a.get("threshold_on") == "raw score" else
+             " Thresholds apply to cross-fitted calibrated scores (reports before 2026-10-22; re-run `pgdocket report`).")
+          , "",
           "| threshold | accepted | coverage | precision | 95 % lower bound |", "| ---: | ---: | ---: | ---: | ---: |"]
     L += [f"| {t['threshold']:.3f} | {t['accepted']} | {_pct(t['coverage'])} | {_pct(t['precision'])} | {_pct(t['lower_bound'])} |"
           for t in th["tested"]]

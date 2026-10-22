@@ -13,6 +13,11 @@ Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repo
 - **`calibrate` used hand-picked labels,** including the disagreements `compare` exports, which biases it toward hard rows. It now uses `random` and `all` labels; `--include-manual` opts in.
 - **Labels for an option a version lacks** were dropped from its calibration, which inflated its precision. They now count as wrong.
 - **`auto` is false, not NULL,** when a calibrated version has no threshold reaching its target.
+- **`pgdocket check` uses the same rule.** It now picks its threshold and its ladder of precision targets on the model's own score, so it reports the threshold `calibrate` would store (a test checks they're equal). Tied scores are tested once.
+  - The saved reports were re-analysed from their answers, with no API calls. Only the thresholds changed.
+  - Kubernetes routing: 90 % precision on 90 % of issues as before, and now also 95 % on 56 %. Jev gave exactly 1.0 to 56 % of issues, 98.9 % of them right.
+  - CFPB: 85 % precision on 70 % of complaints (before: none).
+  - Re-analysed reports say so in their header.
 
 ### Added (#16)
 - **`compare` shows automation, not just accuracy.** With 30+ random labels it calibrates both versions on them and reports calibration error, the guaranteed threshold and the share of compared rows each would mark `auto`. On Kubernetes routing, the SIG descriptions let 95.0 % of issues be auto-routed at 90 % precision, against 90.0 % without them (all 300 labels). With 80 labels, the gap is 78.3 % against 74.7 %.

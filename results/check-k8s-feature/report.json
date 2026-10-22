@@ -214,14 +214,15 @@
       "chosen": null,
       "tested": [
         {
-          "threshold": 0.8236104184990938,
-          "accepted": 75,
-          "coverage": 0.15,
-          "precision": 0.9333333333333333,
-          "lower_bound": 0.8649287523107393
+          "threshold": 0.85,
+          "accepted": 76,
+          "coverage": 0.152,
+          "precision": 0.9342105263157895,
+          "lower_bound": 0.866640364095453
         }
       ]
     },
+    "threshold_on": "raw score",
     "ladder": [
       {
         "target": 0.95,
@@ -237,27 +238,27 @@
       },
       {
         "target": 0.85,
-        "threshold": 0.8236104184990938,
-        "coverage": 0.15,
-        "recall": 0.6481481481481481
+        "threshold": 0.85,
+        "coverage": 0.152,
+        "recall": 0.6574074074074074
       },
       {
         "target": 0.8,
-        "threshold": 0.5466160143417467,
+        "threshold": 0.6120000000000004,
         "coverage": 0.2,
         "recall": 0.8148148148148148
       },
       {
         "target": 0.75,
-        "threshold": 0.5466160143417467,
+        "threshold": 0.6120000000000004,
         "coverage": 0.2,
         "recall": 0.8148148148148148
       },
       {
         "target": 0.7,
-        "threshold": 0.20055313352798326,
-        "coverage": 0.25,
-        "recall": 0.9074074074074074
+        "threshold": 0.27,
+        "coverage": 0.252,
+        "recall": 0.9166666666666666
       }
     ]
   },
@@ -279,5 +280,9 @@
     "projected_usd_table": 0.13679326819200002,
     "projected_usd_per_million_rows": 35.219688000000005,
     "seconds": 17.25839114189148
+  },
+  "reanalysed": {
+    "at": "2026-10-22T11:14:21+00:00",
+    "docket_version": "0.1.0a1"
   }
 }

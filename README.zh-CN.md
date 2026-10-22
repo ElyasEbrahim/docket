@@ -58,7 +58,7 @@ pgdocket check --table public.tickets --key id --text subject,body \
   --options billing,technical,security,sales --label-column team --yes
 ```
 
-在两年的 Kubernetes issue 上，把 issue 分派给 10 个团队（SIG）的结果与人工标注的一致率为 **88.8%**；**90% 的 issue 可以自动分派，并以 95% 的置信度保证精确率 ≥ 90%**（[说明](docs/phase1/kubernetes-triage.md)、[报告](results/check-k8s-sig/report.md)，均为英文）。完整用法：[pgdocket/README.md](pgdocket/README.md)（英文）。
+在两年的 Kubernetes issue 上，把 issue 分派给 10 个团队（SIG）的结果与人工标注的一致率为 **88.8%**；**90% 的 issue 可以自动分派，并以 95% 的置信度保证精确率 ≥ 90%**（若要求精确率 ≥ 95%，则为 56%）（[说明](docs/phase1/kubernetes-triage.md)、[报告](results/check-k8s-sig/report.md)，均为英文）。完整用法：[pgdocket/README.md](pgdocket/README.md)（英文）。
 
 ## pgdocket 能做什么，以及将要做什么
 

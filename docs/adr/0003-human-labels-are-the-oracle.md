@@ -18,6 +18,7 @@ Semantic query research (LOTUS, BARGAIN, SUPG-IT, Cortex AISQL cascades) treats 
 - *Changed (2026-10-22, #16):* the guaranteed threshold is chosen on the **model's own score** (top probability, or P(yes)), not on cross-fitted calibrated scores.
   - **Why the old rule was wrong.** The threshold was tested on one scale (each fold's temperature) and applied by the view on another (the final calibrator's). On real Kubernetes answers this left a threshold above every row's confidence (`auto` empty while `calibrate` reported 21.7 %). In principle it can also accept rows that were never tested. Whether a threshold existed also depended on the random fold assignment.
   - **Why the new rule holds.** The raw score doesn't depend on the labels, so fixed-sequence testing holds exactly. The view applies the very threshold that was tested, and a CI simulation checks the guarantee where the view applies it. Coverage was unchanged on real data (95.0 % at 300 labels).
+  - **`check` too.** `pgdocket check` uses the same rule, so it reports the threshold `calibrate` would store. On the saved Kubernetes and CFPB reports, only the thresholds changed, and two stricter targets became reachable: tied top scores are no longer split at random by fold.
   - **Labels used.** `calibrate` uses `random` and `all` labels. Hand-picked ones (`manual`, such as the disagreements `compare` exports) need `--include-manual`. A label naming an option the version lacks counts as wrong for it.
 
 ## Consequences

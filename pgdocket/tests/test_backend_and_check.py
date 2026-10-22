@@ -95,3 +95,29 @@ def test_recommendation_when_calibration_does_not_help_yet():
                       "threshold": {"chosen": None, "target": 0.9, "alpha": 0.05}, "ladder": []}}
     text = " ".join(recommendations(r))
     assert "doesn't improve it yet" in text and "Don't read the raw scores" not in text
+
+
+def test_check_reports_the_threshold_calibrate_would_store():
+    """`check` and `calibrate` choose the guaranteed threshold the same way, on the model's own score (#16)."""
+    from pgdocket import calibration
+    rng = np.random.default_rng(6)
+    opts = [{"name": n} for n in "abc"]
+    sample, answers = [], []
+    for i in range(300):
+        label, s = "abc"[i % 3], round(float(rng.uniform(0.4, 1.0)), 2)
+        pick = label if rng.random() < 0.3 + 0.7 * s else "abc"[(i + 1) % 3]
+        sample.append({"key": str(i), "record": None, "label": label})
+        answers.append({"choice": pick, "probabilities": {n: (s if n == pick else (1 - s) / 2) for n in "abc"}})
+    a = analyse_choice(_cfg("choice", options=opts, precision_target=0.85), sample, answers)
+    cal = calibration.fit({"kind": "choice", "question": "q?", "options": opts}, answers,
+                          [s["label"] for s in sample], precision_target=0.85)
+    assert a["threshold_on"] == cal["threshold_on"] == "raw score"
+    assert a["threshold"]["chosen"]["threshold"] == cal["threshold"] and a["threshold"]["chosen"]["coverage"] == cal["coverage"]
+
+    p = [float(np.clip(rng.normal(0.7 if i % 3 == 0 else 0.3, 0.15), 0.01, 0.99)) for i in range(300)]
+    yes = [i % 3 == 0 for i in range(300)]
+    a = analyse_noul(_cfg("noul", positive="yes", precision_target=0.85),
+                     [{"key": str(i), "record": None, "label": "yes" if y else "no"} for i, y in enumerate(yes)],
+                     [{"noul": x} for x in p])
+    cal = calibration.fit({"kind": "noul", "question": "q?"}, [{"noul": x} for x in p], yes, precision_target=0.85)
+    assert a["threshold"]["chosen"]["threshold"] == cal["threshold"]
