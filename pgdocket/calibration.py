@@ -43,6 +43,10 @@ def auto(answer, spec, cal):
     """Python twin of the view's `auto` column."""
     if answer is None or not cal:
         return None
+    if "thresholds" in cal:                                     # one guarantee per answer (#19)
+        value, score = read_answer(spec, answer)
+        t = cal["thresholds"].get(value)
+        return t is not None and score >= t
     if cal.get("threshold") is None:
         return False
     if cal.get("threshold_on") == "raw score":
@@ -50,8 +54,12 @@ def auto(answer, spec, cal):
     return calibrated(answer, spec, cal) >= cal["threshold"]
 
 
-def fit(spec, answers, labels, precision_target=0.9, alpha=0.05):
+def fit(spec, answers, labels, precision_target=0.9, alpha=0.05, per_answer=False):
     """answers: raw backend answers; labels: option names (choice) or booleans (noul), same order.
+
+    Choice decisions also get `per_answer`: precision per answer among the accepted rows, with bounds and a flag for
+    answers demonstrably below the target. With `per_answer=True` each answer gets its own threshold and guarantee
+    (`mode: "per answer"`, `thresholds`); answers whose labelled rows can't certify the target get none.
 
     A choice label that is not one of this spec's options (an option another version has) can't be answered
     correctly: it is left out of the temperature fit but counts as wrong in the error and the threshold.
@@ -96,4 +104,15 @@ def fit(spec, answers, labels, precision_target=0.9, alpha=0.05):
     cal.update(common, threshold=chosen["threshold"] if chosen else None, threshold_on="raw score",
                coverage=chosen["coverage"] if chosen else 0.0,
                observed_precision=chosen["precision"] if chosen else None)
+    if spec["kind"] == "choice":
+        pred = np.array([names[i] for i in P.argmax(axis=1)])
+        overall = M.per_answer(score, ok, pred, cal["threshold"], precision_target, alpha)
+        own = {r["answer"]: r["own_threshold"] for r in overall}
+        acc = np.array([own.get(a) is not None and s >= own[a] for a, s in zip(pred, score)])
+        if per_answer:
+            cal.update(mode="per answer", thresholds=own, threshold=None, coverage=float(acc.mean()),
+                       observed_precision=float(ok[acc].mean()) if acc.any() else None,
+                       per_answer=M.per_answer(score, ok, pred, own, precision_target, alpha))
+        else:
+            cal.update(per_answer=overall, per_answer_coverage=float(acc.mean()))    # what --per-answer would allow
     return cal

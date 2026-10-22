@@ -62,7 +62,7 @@ def _view(dsn):
 def test_install_is_idempotent_and_needs_no_superuser(env):
     with psycopg.connect(env["owner"]) as c:
         assert c.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user").fetchone()[0] is False
-    assert ledger.install(env["owner"]) == ["001", "002", "003", "004"]
+    assert ledger.install(env["owner"]) == ["001", "002", "003", "004", "005"]
     assert ledger.install(env["owner"]) == []
 
 
@@ -409,3 +409,37 @@ def test_each_comparison_keeps_its_own_noise_baseline(env):
     assert noise(a) == 0                                    # a keeps the re-asks made at its own time
     ledger.retire(env["owner"], "routes", a)
     ledger.retire(env["owner"], "routes", b)
+
+
+def test_per_answer_guarantee_in_the_view_and_across_promote(env):
+    """`calibrate --per-answer`: the view accepts a row by its own answer's threshold, exactly as the Python twin."""
+    rows = ([(i, "billing", "billing") for i in range(1, 121)] + [(i, "technical", "technical") for i in range(121, 241)]
+            + [(i, "sales", "sales" if i % 2 else "billing") for i in range(241, 301)])     # sales: right half the time
+    with psycopg.connect(env["owner"], autocommit=True) as c:
+        c.execute("CREATE TABLE shop.mail (id int PRIMARY KEY, body text, team text)")
+        with c.cursor() as cur:
+            cur.executemany("INSERT INTO shop.mail VALUES (%s, %s, %s)", rows)
+    ledger.create(env["owner"], "mail", "shop.mail", "id", ["body"], _spec(env["url"]))
+    Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+    ledger.import_labels(env["owner"], "mail", column="team")
+
+    overall = ledger.calibrate(env["owner"], "mail", precision_target=0.8)
+    assert overall["threshold"] is not None and overall["coverage"] == 1.0              # 90 % right in total...
+    assert [r["answer"] for r in overall["per_answer"] if r["below_target"]] == ["sales"]   # ...but sales is not
+
+    cal = ledger.calibrate(env["owner"], "mail", precision_target=0.8, per_answer=True)
+    assert cal["mode"] == "per answer" and cal["thresholds"]["sales"] is None
+    assert cal["thresholds"]["billing"] is not None and cal["thresholds"]["technical"] is not None
+    with psycopg.connect(env["owner"]) as c:
+        spec = c.execute("SELECT v.spec FROM docket.version v JOIN docket.decision d ON d.id = v.decision_id "
+                         "WHERE d.name = 'mail' AND v.version = 1").fetchone()[0]
+        view = c.execute("SELECT v.answer, v.auto, j.answer FROM docket.v_mail v JOIN docket.current cu ON cu.decision_id = "
+                         "(SELECT id FROM docket.decision WHERE name = 'mail') AND cu.row_key = v.key::text "
+                         "JOIN docket.judgment j ON j.id = cu.judgment_id").fetchall()
+    assert len(view) == 300 and all(auto == calibration.auto(ans, spec, cal) for _, auto, ans in view)
+    assert {a for a, auto, _ in view if auto} == {"billing", "technical"}
+
+    ver, _ = ledger.revise(env["owner"], "mail", question="Which team should answer this email?", backfill=True)
+    Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+    p = ledger.promote(env["owner"], "mail", ver)
+    assert p["calibration"]["mode"] == "per answer" and p["calibration"]["thresholds"]["sales"] is None

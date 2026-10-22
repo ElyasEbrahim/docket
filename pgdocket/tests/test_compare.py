@@ -164,11 +164,26 @@ def test_labels_of_a_removed_option_count_as_wrong_for_the_threshold():
 
 
 def test_small_label_sets_warn_when_only_one_version_gets_a_guarantee():
-    r = {"n": 300, "calibration_labels": 80, "calibration": {"current": {"auto_share": 0.78, "precision_target": 0.9},
-                                                   "new": {"auto_share": None, "precision_target": 0.9}},
+    r = {"n": 300, "calibration_labels": 80,
+         "calibration": {"current": {"auto_share": 0.78, "precision_target": 0.9, "below_target": []},
+                         "new": {"auto_share": None, "precision_target": 0.9, "below_target": []}},
          "excess_ci": (0.0, 0.0), "changed": 0.01, "noise": 0.01, "labels": 80, "disagreements": 3,
          "disagreements_labelled": 3, "disagreements_right": {"current": 0, "new": 1, "neither": 0},
          "sign_test_p": 1.0, "gain_from": "disagreements", "accuracy_gain": 0.003, "accuracy_gain_ci": (0.0, 0.01)}
     reasons = compare._verdict(r)["reasons"]
     assert any("partly chance" in x for x in reasons)
     assert any("between 0.0 pp less" in x for x in reasons)          # never "-0.0"
+
+
+def test_compare_names_each_versions_answers_below_target():
+    rng = np.random.default_rng(9)
+    truth = [OPTS[i % 3] for i in range(240)]
+    old = [t if (t != "sales" or rng.random() < 0.2) else "billing" for t in truth]     # v1 sends sales to billing
+    new = list(truth)
+    conf = lambda pick: {"choice": pick, "probabilities": {o: (0.95 if o == pick else 0.025) for o in OPTS}}
+    rows = [{"old": conf(o), "probe": conf(o), "new": conf(n), "label": t} for t, o, n in zip(truth, old, new)]
+    r = compare.analyse(SPEC, SPEC, rows, n_boot=200, precision_target=0.65)
+    assert r["calibration"]["current"]["below_target"] == ["billing"] and r["calibration"]["new"]["below_target"] == []
+    assert any("demonstrably below the target: current: billing; new: none" in x for x in r["reasons"])
+    md = compare.render("t", {"active": 1, "version": 2, "spec_old": SPEC, "spec_new": SPEC}, r)
+    assert "| answers below the target | billing | none |" in md

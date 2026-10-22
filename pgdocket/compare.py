@@ -40,7 +40,7 @@ def decision_value(spec, answer):
     return value if spec["kind"] == "choice" else ("yes" if score >= 0.5 else "no")
 
 
-def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0, precision_target=0.9):
+def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0, precision_target=0.9, per_answer=False):
     """rows: dicts with old, probe, new (raw answers), label (or None) and sampling ('random', 'manual', 'all').
     Rows missing an answer are skipped."""
     rows = [r for r in rows if r["old"] is not None and r["probe"] is not None and r["new"] is not None]
@@ -94,8 +94,9 @@ def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0, precision_target=0.9)
     for_cal = has_label & np.array([r.get("sampling", "random") in ("random", "all") for r in rows])   # as `calibrate`
     out["calibration_labels"] = int(for_cal.sum())
     if out["calibration_labels"] >= MIN_LABELS:
-        out["calibration"] = {"current": _fit(spec_old, [r["old"] for r in rows], label, for_cal, precision_target),
-                              "new": _fit(spec_new, [r["new"] for r in rows], label, for_cal, precision_target)}
+        out["calibration"] = {
+            "current": _fit(spec_old, [r["old"] for r in rows], label, for_cal, precision_target, per_answer),
+            "new": _fit(spec_new, [r["new"] for r in rows], label, for_cal, precision_target, per_answer)}
     if spec_new["kind"] == "choice" and has_label.any():
         unknown = sum(1 for l in label if l is not None and l not in option_names(spec_new))
         if unknown:
@@ -104,19 +105,22 @@ def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0, precision_target=0.9)
     return out
 
 
-def _fit(spec, answers, labels, use, precision_target):
-    """Fit a version's calibrator on the random labels, as `calibrate` would; then how many compared rows its view
-    would mark `auto`. None when the labels can't support a fit."""
+def _fit(spec, answers, labels, use, precision_target, per_answer=False):
+    """Fit a version's calibrator on the labels `calibrate` would use, in the active version's mode; then how many
+    compared rows its view would mark `auto`, and which answers are below the target. None when labels can't fit."""
     idx = [i for i in range(len(answers)) if use[i]]
     y = [labels[i] if spec["kind"] == "choice" else labels[i] == "yes" for i in idx]
     try:
-        cal = calibration.fit(spec, [answers[i] for i in idx], y, precision_target)
+        cal = calibration.fit(spec, [answers[i] for i in idx], y, precision_target, per_answer=per_answer)
     except ValueError:
         return None
-    t = cal["threshold"]
-    auto = None if t is None else float(np.mean([calibration.auto(a, spec, cal) for a in answers]))
+    certified = (any(t is not None for t in cal["thresholds"].values()) if cal.get("mode") == "per answer"
+                 else cal["threshold"] is not None)
+    auto = float(np.mean([calibration.auto(a, spec, cal) for a in answers])) if certified else None
     return {"n_labels": cal["n_labels"], "precision_target": precision_target, "ece_raw": cal["ece_raw"],
-            "ece_calibrated": cal["ece_calibrated"], "threshold": t, "auto_share": auto}
+            "ece_calibrated": cal["ece_calibrated"], "threshold": cal["threshold"], "auto_share": auto,
+            "mode": cal.get("mode", "overall"), "thresholds": cal.get("thresholds"),
+            "below_target": [r["answer"] for r in cal.get("per_answer", []) if r["below_target"]]}
 
 
 def _rows(n):
@@ -184,6 +188,10 @@ def _verdict(r):
                        f"version calibrated on the same {r['calibration_labels']} labels as `calibrate` would use: current "
                        f"{share(c['current'])} of compared rows, "
                        f"new {share(c['new'])}.")
+        weak = {k: ", ".join(c[k]["below_target"]) or "none" for k in ("current", "new")}
+        if c["current"]["below_target"] or c["new"]["below_target"]:
+            reasons.append(f"Answers whose auto-accepted rows are demonstrably below the target: current: {weak['current']}; "
+                           f"new: {weak['new']}.")
         if r["calibration_labels"] < 150 and (c["current"]["auto_share"] is None) != (c["new"]["auto_share"] is None):
             reasons.append(f"With {r['calibration_labels']} labels, whether a guarantee can be certified at all is partly "
                            "chance: on Kubernetes routing, 80 random labels certified 90 % in only 54–66 % of draws. "
@@ -300,7 +308,9 @@ def render(name, data, r):
     c = r.get("calibration") or {}
     if c.get("current") or c.get("new"):
         cell = lambda x, f: "–" if not x else f(x)
-        thr = lambda x: "none" if x["threshold"] is None else f"{x['threshold']:.3f}"
+        thr = lambda x: (f"per answer: {sum(t is not None for t in x['thresholds'].values())} of {len(x['thresholds'])} "
+                         "answers" if x.get("mode") == "per answer" else
+                         "none" if x["threshold"] is None else f"{x['threshold']:.3f}")
         auto = lambda x: "–" if x["auto_share"] is None else pct(x["auto_share"])
         tgt = 100 * (c["current"] or c["new"])["precision_target"]
         L += [f"## Calibration on the same {r['calibration_labels']} labels (as `calibrate` and `promote` would use them)", "", "| | current | new |", "| --- | ---: | ---: |",
@@ -309,6 +319,8 @@ def render(name, data, r):
               f"| threshold for ≥ {tgt:.0f} % precision (95 % confidence) | "
               + " | ".join(cell(x, thr) for x in (c["current"], c["new"])) + " |",
               "| compared rows it would auto-accept | " + " | ".join(cell(x, auto) for x in (c["current"], c["new"])) + " |",
+              "| answers below the target | " + " | ".join(
+                  cell(x, lambda x: ", ".join(x.get("below_target", [])) or "none") for x in (c["current"], c["new"])) + " |",
               ""]
     keys = sorted(set(r["counts_old"]) | set(r["counts_new"]), key=lambda k: -r["counts_old"].get(k, 0))
     L += ["## Answer counts in the sample", "", "| answer | current | new |", "| --- | ---: | ---: |"]

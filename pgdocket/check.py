@@ -179,7 +179,13 @@ def analyse_choice(cfg, sample, answers):
     conf_cal = P_cal.max(axis=1)
     correct_cal = (P_cal.argmax(axis=1) == y).astype(float)
     confusions = Counter((names[t], names[p]) for t, p in zip(y, pred) if t != p).most_common(5)
+    chosen = M.precision_threshold(conf, correct, cfg.precision_target, cfg.alpha)["chosen"]
+    per = M.per_answer(conf, correct, np.array(names)[pred], chosen["threshold"] if chosen else None,
+                       cfg.precision_target, cfg.alpha)                    # the overall guarantee, answer by answer (#19)
+    own = {r["answer"]: r["own_threshold"] for r in per}
+    per_cov = float(np.mean([own.get(names[p]) is not None and c >= own[names[p]] for p, c in zip(pred, conf)]))
     return {
+        "per_answer": per, "per_answer_coverage": per_cov,
         "n": len(y), "accuracy": float(correct.mean()), "accuracy_ci": M.bootstrap_ci(np.mean, [correct]),
         "macro_f1": M.macro_f1(pred, y, len(names)),
         "per_class": [{"option": o, "support": int((y == c).sum()), "predicted": int((pred == c).sum()),
@@ -370,6 +376,13 @@ def recommendations(r):
                f"of rows{caught} (see the table under Threshold)." if best else "")
         out.append(f"**No threshold reaches {_pct(th['target'])} precision with this many labels.**{alt} "
                    "Otherwise: label more rows, or rephrase the question.")
+    weak = [p for p in a.get("per_answer", []) if p["below_target"]]
+    if weak and th["chosen"]:
+        listed = "; ".join(f"*{p['answer']}* ({p['right']} of {p['auto']} right, at most {_pct(p['upper'])})" for p in weak)
+        out.append(f"**Don't auto-accept every answer.** The guarantee holds for the accepted rows together, but these "
+                   f"answers are below {_pct(th['target'])}: {listed}. Send them to a person, label more of their rows, "
+                   f"or give each answer its own guarantee (`pgdocket calibrate --per-answer`: {_pct(a['per_answer_coverage'])} "
+                   "of rows here). See *Precision per answer*.")
     s = r.get("stability")
     if s and s["changed"] > 0.02:
         out.append(f"**Store answers; don't re-ask.** {_pct(s['changed'])} of answers changed when the same rows "
@@ -446,6 +459,15 @@ def render(r):
         else:
             L += ["| precision target | share of rows auto-accepted | threshold |", "| ---: | ---: | ---: |"]
             L += [f"| {_pct(l['target'])} | {_pct(l['coverage'])} | {_num(l['threshold'])} |" for l in a["ladder"]]
+    if a.get("per_answer") and th["chosen"]:
+        L += ["", "### Precision per answer", "",
+              f"Rows the threshold accepts, by the model's answer, with one-sided 95 % Clopper–Pearson bounds. ⚠ marks "
+              f"answers whose upper bound is below {_pct(th['target'])}. *Own guarantee* is what the answer would get "
+              f"with its own threshold ({_pct(a['per_answer_coverage'])} of all rows together).", "",
+              "| answer | answered | accepted | right | lower bound | upper bound | own guarantee accepts |",
+              "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"]
+        L += [f"| {p['answer']}{' ⚠' if p['below_target'] else ''} | {p['answered']} | {p['auto']} | {_pct(p['precision'])} | "
+              f"{_pct(p['lower'])} | {_pct(p['upper'])} | {p['own_auto']} |" for p in a["per_answer"]]
     s, b = r.get("stability"), r.get("batching")
     if s or b:
         L += ["", "## Consistency", "", "| test | rows | answers that changed |", "| --- | ---: | ---: |"]

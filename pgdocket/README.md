@@ -14,6 +14,7 @@ Four pieces work today:
 - **agreement** with your labels, per option, and the most common disagreements;
 - **calibration**: how far the model's confidence is from reality, before and after a one-parameter calibrator fitted on your labels;
 - **a threshold with a guarantee**: which answers you can accept automatically with precision ≥ your target at 95 % confidence, and a table of what each target allows;
+- **precision per answer** among the accepted rows, flagging any answer that is demonstrably below the target (the guarantee is for all accepted rows together);
 - **consistency** (optional): how many answers change if you ask again, or send 20 rows per request;
 - **cost** for this check and projected for the whole table.
 
@@ -95,7 +96,7 @@ pgdocket create triage --table shop.tickets --key id --text subject,body \
   --kind choice --question "Which team should handle this ticket?" --options-file teams.json
 pgdocket worker                                    # long-running; or --once to drain the queue
 pgdocket label triage --from-column team --sample 200    # or --csv labels.csv (key,label)
-pgdocket calibrate triage --precision-target 0.9
+pgdocket calibrate triage --precision-target 0.9          # add --per-answer for one guarantee per answer
 pgdocket status
 ```
 
@@ -110,11 +111,14 @@ WHERE status = 'judged' AND auto;            -- the answers you can act on witho
 | `status` | `pending` (queued), `judged`, `missing` (not judged yet), `error` (failed 5 times; see `docket.queue.last_error`) |
 | `answer` | choice: the option; yes/no: `yes` / `no` (at the calibrated threshold, or 0.5 before calibration) |
 | `confidence` | calibrated probability of that option (choice) or of yes (yes/no); raw before calibration |
-| `auto` | the model's own score (`raw_score`) ≥ the guaranteed threshold, the score the guarantee was tested on; false when no threshold reaches the target; NULL until `pgdocket calibrate` has run |
+| `auto` | the model's own score (`raw_score`) ≥ the guaranteed threshold, the score the guarantee was tested on (with `--per-answer`: that answer's own threshold); false when no threshold reaches the target; NULL until `pgdocket calibrate` has run |
 
 - **Triggers** queue a row only when a judged column actually changes. Application roles need no grant on the `docket` schema, because the trigger function is `SECURITY DEFINER`.
 - **The worker** skips rows whose input hasn't changed, retries with back-off, and stops at `--max-usd`.
 - **The ledger** (`docket.judgment`) is append-only: every answer ever given stays, with its input hash, model and time.
+- **The guarantee covers the accepted rows together, so `calibrate` also checks each answer.** It names any answer whose accepted rows are demonstrably below the target. On Kubernetes routing, *testing* answers were right 7 times in 13 under an overall 90 % guarantee.
+  - `--per-answer` gives each answer its own threshold and guarantee. Answers with too few labelled rows get no `auto`: at 90 %, an answer needs about 60 labelled rows before it can be tested.
+  - The cost is automation: there, 48 % of issues were auto-routable instead of 90 %, each answer at ≥ 90 %. `promote` keeps the mode.
 - **`calibrate` uses labels drawn at random or a whole column.** Hand-picked labels, such as the disagreements `compare` exports, would bias it toward hard rows. They need `--include-manual`.
 
 Measured: 100,000 rows read in milliseconds; live median of 0.7 s from insert to answer; calibration on 200 labels. See [docs/phase1/ledger.md](../docs/phase1/ledger.md).

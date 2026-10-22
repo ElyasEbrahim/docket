@@ -4,7 +4,7 @@
 
 - Text sent: `narrative` · labels: `product`
 - Backend `https://api.typesafe.ai/v1/systemone` · model `jev-1.13.0` · 1 row(s) per request
-- 500 labeled rows sampled from 2,000 in scope (table: 2,000 rows) · 2026-10-19T14:03:21+00:00 · docket 0.0.1 · re-analysed 2026-10-22T11:14:22+00:00 with docket 0.1.0a1 (no API calls)
+- 500 labeled rows sampled from 2,000 in scope (table: 2,000 rows) · 2026-10-19T14:03:21+00:00 · docket 0.0.1 · re-analysed 2026-10-22T12:08:34+00:00 with docket 0.1.0a2 (no API calls)
 
 ## Recommendations
 

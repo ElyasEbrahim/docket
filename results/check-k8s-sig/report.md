@@ -4,13 +4,14 @@
 
 - Text sent: `title, body` · labels: `sig`
 - Backend `https://api.typesafe.ai/v1/systemone` · model `jev-1.13.0` · 1 row(s) per request
-- 500 labeled rows sampled from 2,550 in scope (table: 3,884 rows) · 2026-10-19T14:05:39+00:00 · docket 0.0.1 · re-analysed 2026-10-22T11:14:21+00:00 with docket 0.1.0a1 (no API calls)
+- 500 labeled rows sampled from 2,550 in scope (table: 3,884 rows) · 2026-10-19T14:05:39+00:00 · docket 0.0.1 · re-analysed 2026-10-22T12:08:33+00:00 with docket 0.1.0a2 (no API calls)
 
 ## Recommendations
 
 1. **Don't read the raw scores as probabilities.** Calibration error is 0.073; after a one-parameter calibrator fitted on these labels it is 0.029.
 2. **Auto-accept answers whose model's top probability is ≥ 0.77.** That covers 90.0 % of rows, with precision ≥ 90.0 % at 95 % confidence (observed 92.4 %). Send the rest to a person.
-3. **Judge one row per request.** Sending 20 rows per request changed 15.0 % of answers.
+3. **Don't auto-accept every answer.** The guarantee holds for the accepted rows together, but these answers are below 90.0 %: *testing* (7 of 13 right, at most 77.6 %). Send them to a person, label more of their rows, or give each answer its own guarantee (`pgdocket calibrate --per-answer`: 48.2 % of rows here). See *Precision per answer*.
+4. **Judge one row per request.** Sending 20 rows per request changed 15.0 % of answers.
 
 ## Agreement with your labels
 
@@ -88,6 +89,23 @@ What each precision target allows (each with the same 95 % guarantee):
 | 80.0 % | 100.0 % | 0.400 |
 | 75.0 % | 100.0 % | 0.400 |
 | 70.0 % | 100.0 % | 0.400 |
+
+### Precision per answer
+
+Rows the threshold accepts, by the model's answer, with one-sided 95 % Clopper–Pearson bounds. ⚠ marks answers whose upper bound is below 90.0 %. *Own guarantee* is what the answer would get with its own threshold (48.2 % of all rows together).
+
+| answer | answered | accepted | right | lower bound | upper bound | own guarantee accepts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| node | 162 | 147 | 95.9 % | 92.1 % | 98.2 % | 145 |
+| api-machinery | 120 | 113 | 91.2 % | 85.5 % | 95.1 % | 96 |
+| scheduling | 56 | 54 | 100.0 % | 94.6 % | 100.0 % | 0 |
+| network | 42 | 39 | 94.9 % | 84.7 % | 99.1 % | 0 |
+| storage | 33 | 28 | 96.4 % | 84.1 % | 99.8 % | 0 |
+| testing ⚠ | 20 | 13 | 53.8 % | 28.7 % | 77.6 % | 0 |
+| apps | 19 | 17 | 82.4 % | 60.4 % | 95.0 % | 0 |
+| cli | 17 | 16 | 87.5 % | 65.6 % | 97.7 % | 0 |
+| instrumentation | 17 | 13 | 76.9 % | 50.5 % | 93.4 % | 0 |
+| auth | 14 | 10 | 90.0 % | 60.6 % | 99.5 % | 0 |
 
 ## Consistency
 

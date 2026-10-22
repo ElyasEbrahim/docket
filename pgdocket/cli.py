@@ -108,6 +108,8 @@ def main(argv=None):
     dsn_arg(ca)
     ca.add_argument("name")
     ca.add_argument("--precision-target", type=float, default=0.9)
+    ca.add_argument("--per-answer", action="store_true",
+                    help="choice: one threshold and guarantee per answer (answers with too few labels get no auto)")
     ca.add_argument("--include-manual", action="store_true",
                     help="also fit on hand-picked labels (e.g. exported disagreements); may bias the guarantee")
     es = sub.add_parser("estimate", help="counts with confidence intervals (prediction-powered inference)")
@@ -223,11 +225,12 @@ def _ledger_command(a):
         kind = "random sample" if (a.sample or a.random) else ("whole column" if a.from_column else "manual")
         print(f"{n} labels imported for {a.name} ({kind})")
     elif a.cmd == "calibrate":
-        cal = ledger.calibrate(a.dsn, a.name, a.precision_target, include_manual=a.include_manual)
-        thr = (f"auto when the model's score ≥ {cal['threshold']:.3f}: {100 * cal['coverage']:.1f} % of labelled rows, "
-               f"precision ≥ {100 * cal['precision_target']:.0f} % (95 % confidence)" if cal["threshold"] is not None
-               else f"no threshold reaches {100 * cal['precision_target']:.0f} % precision with {cal['n_labels']} labels")
-        print(f"{a.name}: {cal['n_labels']} labels · calibration error {cal['ece_raw']:.3f} → {cal['ece_calibrated']:.3f} · {thr}")
+        cal = ledger.calibrate(a.dsn, a.name, a.precision_target, include_manual=a.include_manual,
+                               per_answer=a.per_answer)
+        print(f"{a.name}: {cal['n_labels']} labels · calibration error {cal['ece_raw']:.3f} → {cal['ece_calibrated']:.3f} · "
+              + _threshold_summary(cal))
+        for line in _per_answer_notes(cal, a.name):
+            print(line)
     elif a.cmd == "estimate":
         rows = ledger.estimate(a.dsn, a.name, a.answer, a.where, a.level, a.include_manual)
         lvl = f"{100 * a.level:.0f} %"
@@ -274,11 +277,10 @@ def _ledger_command(a):
             print(f"{r['missing']:,} rows show as pending until the worker judges them under v{a.version}")
         cal = r["calibration"]
         if cal:
-            thr = (f"auto when the model's score ≥ {cal['threshold']:.3f}: {100 * cal['coverage']:.1f} % of labelled rows"
-                   if cal["threshold"] is not None else
-                   f"no threshold reaches {100 * cal['precision_target']:.0f} % precision: `auto` is false everywhere")
             print(f"recalibrated v{a.version} on {cal['n_labels']} labels: calibration error {cal['ece_raw']:.3f} → "
-                  f"{cal['ece_calibrated']:.3f} · {thr}")
+                  f"{cal['ece_calibrated']:.3f} · " + _threshold_summary(cal))
+            for line in _per_answer_notes(cal, a.name):
+                print(line)
         else:
             print(f"v{a.version} is not calibrated ({r['calibration_missing']}): `auto` is empty until you label rows "
                   f"and run `pgdocket calibrate {a.name}`")
@@ -301,6 +303,30 @@ def _ledger_command(a):
                   f"labels {r['labels']:>5,}  tokens {r['tokens']:>12,}  {'calibrated' if r['calibrated'] else 'not calibrated'}")
 
 
+def _threshold_summary(cal):
+    tgt = f"{100 * cal['precision_target']:.0f} %"
+    if cal.get("mode") == "per answer":
+        ok = sum(t is not None for t in cal["thresholds"].values())
+        return (f"per answer: {ok} of {len(cal['thresholds'])} answers certified at ≥ {tgt} precision (95 % confidence "
+                f"each); {100 * cal['coverage']:.1f} % of labelled rows auto")
+    if cal["threshold"] is None:
+        return f"no threshold reaches {tgt} precision with {cal['n_labels']} labels: `auto` is false everywhere"
+    return (f"auto when the model's score ≥ {cal['threshold']:.3f}: {100 * cal['coverage']:.1f} % of labelled rows, "
+            f"precision ≥ {tgt} (95 % confidence)")
+
+
+def _per_answer_notes(cal, name):
+    """Answers whose auto-accepted rows are demonstrably below the target, and what --per-answer would allow."""
+    tgt = f"{100 * cal['precision_target']:.0f} %"
+    out = [f"  ⚠ {r['answer']}: {r['right']} of {r['auto']} auto-accepted answers right ({100 * r['precision']:.1f} %, at most "
+           f"{100 * r['upper']:.1f} % with 95 % confidence), below {tgt}" for r in cal.get("per_answer", []) if r["below_target"]]
+    if out and cal.get("mode") != "per answer":
+        out.append(f"  the overall guarantee holds, but not for these answers: label more of their rows, or run "
+                   f"`pgdocket calibrate {name} --per-answer` ({100 * cal['per_answer_coverage']:.1f} % of labelled rows "
+                   "would be auto, each answer with its own guarantee)")
+    return out
+
+
 def _compare(a, ledger):
     from . import compare
     if a.sample:
@@ -315,7 +341,8 @@ def _compare(a, ledger):
     with ledger.connect(a.dsn) as conn:
         data = compare.fetch(conn, a.name, a.version)
         target = a.precision_target or (data["calibration"] or {}).get("precision_target", 0.9)
-        result = compare.analyse(data["spec_old"], data["spec_new"], data["rows"], precision_target=target)
+        result = compare.analyse(data["spec_old"], data["spec_new"], data["rows"], precision_target=target,
+                                 per_answer=(data["calibration"] or {}).get("mode") == "per answer")
         if data["pending"]:
             result.setdefault("reasons", []).insert(0, f"{data['pending']} queued judgments are not done yet; "
                                                        "this report covers only finished rows.")

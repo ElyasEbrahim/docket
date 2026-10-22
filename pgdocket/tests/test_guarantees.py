@@ -85,3 +85,68 @@ def test_the_threshold_holds_where_the_view_applies_it():
         misses += (pick[auto] == truth[auto]).mean() < 0.85
     assert found > trials / 2
     assert misses / found <= 0.07                                       # stated: at most 5 %
+
+
+def test_per_answer_flags_only_answers_demonstrably_below_target():
+    from pgdocket.metrics import per_answer
+    score = np.ones(43)
+    answer = np.array(["a"] * 30 + ["b"] * 10 + ["c"] * 3)
+    correct = np.array([1.0] * 30 + [1, 1, 1] + [0] * 7 + [1, 1, 0])
+    rows = {r["answer"]: r for r in per_answer(score, correct, answer, 0.5, target=0.9)}
+    assert rows["a"]["auto"] == 30 and rows["a"]["precision"] == 1.0 and not rows["a"]["below_target"]
+    assert rows["b"]["precision"] == 0.3 and rows["b"]["upper"] < 0.9 and rows["b"]["below_target"]
+    assert rows["c"]["upper"] > 0.9 and not rows["c"]["below_target"]       # 2 of 3: too few rows to say
+    assert [r["answer"] for r in per_answer(score, correct, answer, 0.5)] == ["a", "b", "c"]     # largest first
+
+
+def _three_answers(rng, n):
+    """A good answer, a middling one and a bad one; precision rises with the score within each."""
+    opts = ["good", "mid", "bad"]
+    base = {"good": 0.93, "mid": 0.6, "bad": 0.1}
+    s = np.round(rng.uniform(0.34, 1.0, n), 2)
+    pick = rng.choice(3, n, p=[0.6, 0.25, 0.15])
+    right = rng.random(n) < np.array([base[opts[p]] for p in pick]) + (1 - np.array([base[opts[p]] for p in pick])) * s ** 4
+    truth = np.where(right, pick, (pick + rng.integers(1, 3, n)) % 3)
+    answers = [{"choice": opts[p], "probabilities": {o: (x if i == p else (1 - x) / 2) for i, o in enumerate(opts)}}
+               for p, x in zip(pick, s)]
+    return opts, pick, truth, answers
+
+
+def test_a_guarantee_per_answer_holds_for_each_answer():
+    """--per-answer: for each answer that gets a threshold, its accepted rows reach the target (95 % confidence)."""
+    from pgdocket import calibration
+    rng = np.random.default_rng(21)
+    spec = {"kind": "choice", "question": "q", "options": [{"name": o} for o in ("good", "mid", "bad")]}
+    trials, misses, certified = 150, {"good": 0, "mid": 0, "bad": 0}, {"good": 0, "mid": 0, "bad": 0}
+    for _ in range(trials):
+        opts, pick, truth, answers = _three_answers(rng, 3000)
+        lab = rng.choice(3000, 400, replace=False)
+        labels = [opts[truth[i]] for i in lab]
+        cal = calibration.fit(spec, [answers[i] for i in lab], labels, precision_target=0.9, per_answer=True)
+        assert np.mean([calibration.auto(answers[i], spec, cal) for i in lab]) == pytest.approx(cal["coverage"])
+        auto = np.array([calibration.auto(a, spec, cal) for a in answers])
+        for k, o in enumerate(opts):
+            m = auto & (pick == k)
+            if cal["thresholds"].get(o) is not None and m.any():
+                certified[o] += 1
+                misses[o] += (truth[m] == k).mean() < 0.9
+    assert certified["good"] > trials * 0.6
+    for o in opts:
+        assert misses[o] <= max(2, 0.07 * certified[o]), (o, misses[o], certified[o])
+
+
+def test_calibrate_reports_an_answer_that_is_confidently_wrong():
+    """Overall mode: the guarantee holds for all accepted rows, and the weak answer is named in `per_answer`."""
+    from pgdocket import calibration
+    rng = np.random.default_rng(22)
+    opts = ["a", "b", "c"]
+    spec = {"kind": "choice", "question": "q", "options": [{"name": o} for o in opts]}
+    pick = rng.choice(3, 400, p=[0.8, 0.1, 0.1])
+    right = rng.random(400) < np.where(pick == 2, 0.3, 0.97)              # c is wrong 70 % of the time, at 0.95
+    truth = np.where(right, pick, (pick + 1) % 3)
+    answers = [{"choice": opts[p], "probabilities": {o: (0.95 if i == p else 0.025) for i, o in enumerate(opts)}}
+               for p in pick]
+    cal = calibration.fit(spec, answers, [opts[t] for t in truth], precision_target=0.8)
+    assert cal["threshold"] is not None and cal["observed_precision"] >= 0.8
+    assert [r["answer"] for r in cal["per_answer"] if r["below_target"]] == ["c"]
+    assert cal["per_answer_coverage"] < cal["coverage"]                    # its own guarantee would accept less

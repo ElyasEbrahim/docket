@@ -227,6 +227,30 @@ def crossfit_temperature(P, y_idx, k=5, seed=0):
     return out, float(np.median(temps))
 
 
+
+def per_answer(score, correct, answer, threshold, target=0.9, alpha=0.05):
+    """Precision per answer among the rows `auto` would accept (#19).
+
+    `threshold` is one number (the overall guarantee), a dict answer -> threshold (one guarantee per answer) or None.
+    For each answer: how many rows were accepted, how many of those were right, one-sided Clopper-Pearson bounds at
+    1 - alpha, `below_target` when even the upper bound is under the target (demonstrably worse, not just few rows),
+    and the threshold the answer would get under its own guarantee (None when its rows can't certify the target).
+    """
+    score, correct, answer = np.asarray(score, float), np.asarray(correct, float), np.asarray(answer)
+    out = []
+    for a in sorted(set(answer.tolist()), key=lambda a: (-(answer == a).sum(), a)):
+        m = answer == a
+        t = threshold.get(a) if isinstance(threshold, dict) else threshold
+        acc = m & (score >= t) if t is not None else np.zeros(len(m), bool)
+        n, k = int(acc.sum()), int(correct[acc].sum())
+        upper = 1 - clopper_pearson_lower(n - k, n, alpha) if n else None
+        own = precision_threshold(score[m], correct[m], target, alpha)["chosen"]
+        out.append({"answer": a, "answered": int(m.sum()), "auto": n, "right": k,
+                    "precision": k / n if n else None, "lower": clopper_pearson_lower(k, n, alpha) if n else None,
+                    "upper": upper, "below_target": bool(n and upper < target),
+                    "own_threshold": own["threshold"] if own else None, "own_auto": own["accepted"] if own else 0})
+    return out
+
 # ---------------------------------------------------------------- uncertainty
 def bootstrap_ci(stat, arrays, n_boot=1000, seed=0, alpha=0.05):
     """Percentile bootstrap CI for stat(*arrays) resampling rows jointly."""

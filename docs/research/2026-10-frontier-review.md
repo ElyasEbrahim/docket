@@ -16,7 +16,7 @@ Each candidate had to fix a real gap and keep its guarantee. Where possible, I t
 
 | Idea | Source | Verdict | Evidence here |
 | --- | --- | --- | --- |
-| **Precision per answer**, not only overall | class-conditional conformal prediction (Ding et al., NeurIPS 2023) | **Adopt now**: report it, flag weak answers; per-answer guarantee as an option | Under the overall 90 % guarantee, auto-accepted *testing* routes were right 54 % of the time; on CFPB, *credit card* 53 % |
+| **Precision per answer**, not only overall | class-conditional conformal prediction (Ding et al., NeurIPS 2023) | **Adopted** (#19): reported and flagged everywhere; `--per-answer` guarantee | Under the overall 90 % guarantee, auto-accepted *testing* routes were right 54 % of the time; on CFPB, *credit card* 53 % |
 | **Check a new model before switching** (jev-1.14.0, 14 Oct 2026) | TypeSafe docs | **Keep jev-1.13.0 for now**; switching is safe once there are enough labels to recalibrate | 1.14 changed 1.0 % of answers, the same as asking 1.13 again; accuracy 91.3 % → 91.7 % (all 300 labels) |
 | **Review planning** with an error guarantee for the whole column | probably approximately correct labels (Candès, Ilyas & Zrnic, 2025) | **Adopt next** (`pgdocket plan`) | ≤ 5 % errors on Kubernetes routing: review 36 % of issues with 200 labels (19 % if every label were known); the guarantee failed in 2.2 % of trials |
 | Adaptive labelling for thresholds; **recall targets** | BARGAIN (Zeighami, Shankar & Parameswaran, SIGMOD 2026) | **Later**, with recall targets for yes/no decisions | not tested |
@@ -49,6 +49,10 @@ On CFPB at 80 %, *credit card* answers were right 53.3 % of the time (60 auto-ac
 **Proposal:**
 1. Always report precision per answer for the auto-accepted rows, with its lower bound. Flag answers whose upper bound is below the target, which means they are demonstrably worse. Do this in `calibrate`, `check` and `compare`.
 2. Offer `--per-answer` for a guarantee on each answer. Answers without enough labels then get no `auto`.
+
+*Done 2026-10-22 (#19):*
+- `calibrate`, `check`, `compare` and `promote` report precision per answer and flag weak answers; the re-analysed Kubernetes report flags *testing*.
+- `calibrate --per-answer` stores a threshold per answer, the view applies it (migration 005), and `promote` keeps the mode. A CI simulation checks each answer's guarantee.
 
 ## 2. A new model: jev-1.14.0
 

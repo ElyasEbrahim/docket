@@ -76,6 +76,117 @@
     }
   },
   "analysis": {
+    "per_answer": [
+      {
+        "answer": "credit reporting",
+        "answered": 256,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": 0.4,
+        "own_auto": 256
+      },
+      {
+        "answer": "credit card",
+        "answered": 77,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "debt collection",
+        "answered": 56,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "checking or savings account",
+        "answered": 46,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "mortgage",
+        "answered": 28,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "student loan",
+        "answered": 12,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "payday, title, or personal loan",
+        "answered": 11,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "money transfer or virtual currency",
+        "answered": 7,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "vehicle loan or lease",
+        "answered": 7,
+        "auto": 0,
+        "right": 0,
+        "precision": null,
+        "lower": null,
+        "upper": null,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      }
+    ],
+    "per_answer_coverage": 0.512,
     "n": 500,
     "accuracy": 0.798,
     "accuracy_ci": [
@@ -390,7 +501,7 @@
     "seconds": 10.688778400421143
   },
   "reanalysed": {
-    "at": "2026-10-22T11:14:22+00:00",
-    "docket_version": "0.1.0a1"
+    "at": "2026-10-22T12:08:34+00:00",
+    "docket_version": "0.1.0a2"
   }
 }

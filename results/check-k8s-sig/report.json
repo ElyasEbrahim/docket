@@ -91,6 +91,129 @@
     }
   },
   "analysis": {
+    "per_answer": [
+      {
+        "answer": "node",
+        "answered": 162,
+        "auto": 147,
+        "right": 141,
+        "precision": 0.9591836734693877,
+        "lower": 0.9210338038851305,
+        "upper": 0.9820776683290545,
+        "below_target": false,
+        "own_threshold": 0.772,
+        "own_auto": 145
+      },
+      {
+        "answer": "api-machinery",
+        "answered": 120,
+        "auto": 113,
+        "right": 103,
+        "precision": 0.911504424778761,
+        "lower": 0.8545157392896852,
+        "upper": 0.9512009559486951,
+        "below_target": false,
+        "own_threshold": 0.9679999999999999,
+        "own_auto": 96
+      },
+      {
+        "answer": "scheduling",
+        "answered": 56,
+        "auto": 54,
+        "right": 54,
+        "precision": 1.0,
+        "lower": 0.9460342329026237,
+        "upper": 1.0,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "network",
+        "answered": 42,
+        "auto": 39,
+        "right": 37,
+        "precision": 0.9487179487179487,
+        "lower": 0.8472348946925569,
+        "upper": 0.9908114354276726,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "storage",
+        "answered": 33,
+        "auto": 28,
+        "right": 27,
+        "precision": 0.9642857142857143,
+        "lower": 0.8414928256083646,
+        "upper": 0.9981697735398605,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "testing",
+        "answered": 20,
+        "auto": 13,
+        "right": 7,
+        "precision": 0.5384615384615384,
+        "lower": 0.28704900279438905,
+        "upper": 0.7760446057886805,
+        "below_target": true,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "apps",
+        "answered": 19,
+        "auto": 17,
+        "right": 14,
+        "precision": 0.8235294117647058,
+        "lower": 0.6043585665551788,
+        "upper": 0.950101845442577,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "cli",
+        "answered": 17,
+        "auto": 16,
+        "right": 14,
+        "precision": 0.875,
+        "lower": 0.6561748007704106,
+        "upper": 0.9773212172775543,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "instrumentation",
+        "answered": 17,
+        "auto": 13,
+        "right": 10,
+        "precision": 0.7692307692307693,
+        "lower": 0.5053502698486344,
+        "upper": 0.9339504327836904,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      },
+      {
+        "answer": "auth",
+        "answered": 14,
+        "auto": 10,
+        "right": 9,
+        "precision": 0.9,
+        "lower": 0.6058366975634951,
+        "upper": 0.9948838031081763,
+        "below_target": false,
+        "own_threshold": null,
+        "own_auto": 0
+      }
+    ],
+    "per_answer_coverage": 0.482,
     "n": 500,
     "accuracy": 0.888,
     "accuracy_ci": [
@@ -475,7 +598,7 @@
     "seconds": 17.548314571380615
   },
   "reanalysed": {
-    "at": "2026-10-22T11:14:21+00:00",
-    "docket_version": "0.1.0a1"
+    "at": "2026-10-22T12:08:33+00:00",
+    "docket_version": "0.1.0a2"
   }
 }

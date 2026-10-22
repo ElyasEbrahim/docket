@@ -6,6 +6,18 @@ Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repo
 
 **Release 0.1.0a2.** Everything below, from #15 and #16, plus:
 
+### Added (precision per answer, #19)
+- **`calibrate`, `check`, `compare` and `promote` report precision per answer** among the auto-accepted rows, with 95 % bounds. They flag answers whose upper bound is below the target.
+  - **Why:** the guarantee covers all accepted rows together and could hide weak answers. On Kubernetes routing, *testing* was right 7 times in 13 under the overall 90 % guarantee. The re-analysed report now says so and recommends what to do.
+- **`calibrate --per-answer`:** one threshold and one guarantee for each answer; answers with too few labelled rows get no `auto`.
+  - Migration `005`: the view looks up the answer's own threshold.
+  - `promote` keeps the mode, and `compare` calibrates both versions in the active version's mode.
+  - On Kubernetes routing it auto-accepts 48 % of issues, each answer at ≥ 90 %, against 90 % of issues overall.
+- **Tests:**
+  - a CI simulation that each answer's guarantee holds where the view applies it;
+  - the view checked against the Python twin row by row;
+  - `check` and `compare` naming a weak answer.
+
 ### Research (#18)
 - **A review of recent work, tested on our own answers** ([docs/research/2026-10-frontier-review.md](docs/research/2026-10-frontier-review.md)). `jevbench frontier` re-runs the five offline experiments, with no API calls.
   - **The most important finding: the overall precision guarantee hides weak answers.** Under the 90 % guarantee, auto-accepted Kubernetes *testing* routes were right 54 % of the time; on CFPB, *credit card* answers 53 %. Precision per answer is next (#19).

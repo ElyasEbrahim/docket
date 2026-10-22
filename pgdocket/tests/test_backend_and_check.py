@@ -121,3 +121,27 @@ def test_check_reports_the_threshold_calibrate_would_store():
                      [{"noul": x} for x in p])
     cal = calibration.fit({"kind": "noul", "question": "q?"}, [{"noul": x} for x in p], yes, precision_target=0.85)
     assert a["threshold"]["chosen"]["threshold"] == cal["threshold"]
+
+
+def test_check_names_answers_below_target_and_reports_them_per_answer():
+    rng = np.random.default_rng(8)
+    opts = [{"name": n} for n in "abc"]
+    sample, answers = [], []
+    for i in range(400):
+        pick = "abc"[i % 10 // 4] if i % 10 < 8 else "c"                 # c is answered 20 % of the time...
+        right = rng.random() < (0.97 if pick != "c" else 0.45)           # ...and is often wrong
+        label = pick if right else ("a" if pick != "a" else "b")
+        sample.append({"key": str(i), "record": None, "label": label})
+        answers.append({"choice": pick, "probabilities": {n: (0.95 if n == pick else 0.025) for n in "abc"}})
+    cfg = _cfg("choice", options=opts, precision_target=0.8)
+    a = analyse_choice(cfg, sample, answers)
+    weak = [p["answer"] for p in a["per_answer"] if p["below_target"]]
+    assert a["threshold"]["chosen"] and weak == ["c"]
+    a.pop("_top")
+    result = {"config": {**cfg.__dict__}, "analysis": a, "backend": {"url": "fake", "model": "m", "batch_size": 1},
+              "created_at": "now", "docket_version": "0",
+              "sample": {"labeled_rows": 400, "rows_in_scope": 400, "table_rows": 400, "label_counts": {}},
+              "cost": {"requests": 400, "input_tokens": 40000, "usd": 0.0017, "tokens_per_row": 100,
+                       "projected_usd_table": 0.0017, "projected_usd_per_million_rows": 4.2, "seconds": 3}}
+    md = render(result)
+    assert "Don't auto-accept every answer" in md and "*c*" in md and "### Precision per answer" in md and "| c ⚠ |" in md
