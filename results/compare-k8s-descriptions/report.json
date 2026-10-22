@@ -1,0 +1,101 @@
+{
+  "n": 300,
+  "changed": 0.043333333333333335,
+  "noise": 0.01,
+  "excess": 0.03333333333333333,
+  "excess_ci": [
+    0.01,
+    0.06
+  ],
+  "transitions": [
+    {
+      "old": "node",
+      "new": "storage",
+      "rows": 2
+    },
+    {
+      "old": "api-machinery",
+      "new": "scheduling",
+      "rows": 2
+    },
+    {
+      "old": "node",
+      "new": "api-machinery",
+      "rows": 2
+    },
+    {
+      "old": "testing",
+      "new": "storage",
+      "rows": 1
+    },
+    {
+      "old": "auth",
+      "new": "node",
+      "rows": 1
+    },
+    {
+      "old": "api-machinery",
+      "new": "storage",
+      "rows": 1
+    },
+    {
+      "old": "api-machinery",
+      "new": "node",
+      "rows": 1
+    },
+    {
+      "old": "apps",
+      "new": "api-machinery",
+      "rows": 1
+    }
+  ],
+  "counts_old": {
+    "node": 102,
+    "api-machinery": 74,
+    "scheduling": 58,
+    "network": 14,
+    "apps": 11,
+    "storage": 11,
+    "auth": 10,
+    "testing": 10,
+    "cli": 7,
+    "instrumentation": 3
+  },
+  "counts_new": {
+    "node": 101,
+    "api-machinery": 73,
+    "scheduling": 60,
+    "storage": 15,
+    "network": 14,
+    "apps": 10,
+    "auth": 9,
+    "cli": 8,
+    "testing": 7,
+    "instrumentation": 3
+  },
+  "tokens_per_row_old": 1023.7133333333334,
+  "tokens_per_row_new": 884.0,
+  "labels": 80,
+  "disagreements": 13,
+  "disagreements_labelled": 13,
+  "disagreements_right": {
+    "current": 8,
+    "new": 2,
+    "neither": 3
+  },
+  "sign_test_p": 0.109375,
+  "accuracy_old": 0.9125,
+  "accuracy_new": 0.9125,
+  "gain_from": "disagreements",
+  "accuracy_gain": -0.02,
+  "accuracy_gain_ci": [
+    -0.04,
+    0.0
+  ],
+  "verdict": "no clear difference",
+  "reasons": [
+    "The new version changes 4.3 % of answers, against 1.0 % when the current one is simply asked again: 3.3 % more [1.0 %, 6.0 %] are due to the change.",
+    "The versions disagree on 13 of 300 rows, all labelled: the current one was right on 8, the new one on 2, neither on 3 (exact sign test p = 0.11). Accuracy difference: -2.0 pp [-4.0 pp, +0.0 pp]. No difference is detectable: the new version is between 4.0 pp less and 0.0 pp more accurate.",
+    "Tokens per row: 1024 \u2192 884 (-14 %). Promote for the saving only if losing up to 4.0 pp of accuracy is acceptable."
+  ]
+}

@@ -59,7 +59,8 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 ## Phase 3: Multi-backend + drift (weeks 11–12)
 
 - [ ] Adapters: OpenAI Decisions API, `/v1/systemone`-compatible (stuntd, laya-server), Jev via OpenRouter
-- [ ] Shadow versions, `revise`, `diff` (flip rate, calibration shift, gold accuracy), `promote`
+- [x] Shadow versions, `revise`, `compare` (changes against the re-ask noise baseline, accuracy from labels on the disagreements), gated `promote`, `retire` (#15)
+- [ ] Calibration shift in `compare`; carry calibration over to a promoted version
 - [ ] Backend comparison report (accuracy, ECE, cost, latency) on the same gold set
 - [ ] Option-order debiasing for `choice` (on only if Phase 0 showed it helps)
 - [ ] Instruction-injection flag decision and consistency re-checks → review queue

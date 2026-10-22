@@ -7,7 +7,7 @@
 
 **Durable, versioned, calibrated AI decisions for Postgres.** Declare a semantic decision once (*"is this complaint about debt collection?"*). pgdocket keeps the answer stored as data, versioned, calibrated against your own labels, and honest about its uncertainty, in any Postgres and with any decision model.
 
-> **Status: Phase 1 in progress.** Working: [`pgdocket check`](pgdocket/README.md) measures how trustworthy an AI decision is on *your* table; the [ledger](docs/phase1/ledger.md) stores decisions in Postgres and keeps them current as rows change; [`pgdocket estimate`](docs/phase1/counts.md) gives counts with confidence intervals. Not built yet: version comparison, other backends' adapters, a published release. The repository also contains the design ([REPORT.md](REPORT.md), [ADRs](docs/adr/)) and the Phase 0 benchmark ([findings](docs/phase0/FINDINGS-jev-1.13.md)). Progress is tracked in [issues](https://github.com/ElyasEbrahim/pgdocket/issues) and [milestones](https://github.com/ElyasEbrahim/pgdocket/milestones).
+> **Status: Phase 1 in progress.** Working: [`pgdocket check`](pgdocket/README.md) measures how trustworthy an AI decision is on *your* table; the [ledger](docs/phase1/ledger.md) stores decisions in Postgres and keeps them current as rows change; [`pgdocket estimate`](docs/phase1/counts.md) gives counts with confidence intervals; [`pgdocket compare`](docs/phase1/versions.md) tests a revised decision against the current one before switching. Not built yet: other backends' adapters, a published release. The repository also contains the design ([REPORT.md](REPORT.md), [ADRs](docs/adr/)) and the Phase 0 benchmark ([findings](docs/phase0/FINDINGS-jev-1.13.md)). Progress is tracked in [issues](https://github.com/ElyasEbrahim/pgdocket/issues) and [milestones](https://github.com/ElyasEbrahim/pgdocket/milestones).
 
 ## The problem
 
@@ -56,14 +56,14 @@ pgdocket check --table public.tickets --key id --text subject,body \
   --options billing,technical,security,sales --label-column team --yes
 ```
 
-On two years of Kubernetes issues, routing to 10 teams (SIGs) agreed with the human labels **88.8 %** of the time. **90 % of issues could be auto-routed with precision ≥ 90 % guaranteed** at 95 % confidence ([write-up](docs/phase1/kubernetes-triage.md), [report](results/check-k8s-sig/report.md)). Full usage: [docket/README.md](pgdocket/README.md).
+On two years of Kubernetes issues, routing to 10 teams (SIGs) agreed with the human labels **88.8 %** of the time. **90 % of issues could be auto-routed with precision ≥ 90 % guaranteed** at 95 % confidence ([write-up](docs/phase1/kubernetes-triage.md), [report](results/check-k8s-sig/report.md)). Full usage: [pgdocket/README.md](pgdocket/README.md).
 
 ## What pgdocket does, and will do
 
 1. **Stored decisions.** *Built.* Answers live in an append-only ledger and a view you can join and index. New and changed rows are judged automatically, one row per request. 100,000 rows: one row reads in 0.14 ms; on a live stream, the median time from insert to answer was 0.7 s ([details](docs/phase1/ledger.md)).
 2. **Calibration on your labels.** *Built.* About 100–200 human labels per decision turn raw scores into probabilities that mean what they say. The view shows the calibrated confidence and an `auto` flag.
 3. **Honest numbers.** *Built.* Thresholds come with stated guarantees ("precision ≥ 90 % at 95 % confidence"). Counts come with confidence intervals: `pgdocket estimate` combines the model's answers with a random sample of labels (prediction-powered inference). On real Kubernetes issues its intervals held 98–100 % of the time and were 30–50 % narrower than labels alone ([details](docs/phase1/counts.md)).
-4. **Versions.** *Partly built.* Changing the question, labels or model creates a new version; comparing versions before switching is not built yet.
+4. **Versions.** *Built.* Changing the question, options or model creates a shadow version. `pgdocket compare` judges a sample under both versions and reports which answers changed beyond run-to-run noise. It also reports which version is more accurate. Only the rows where the versions disagree need labels for that. On Kubernetes routing, dropping the option descriptions saved 14 % of tokens and moved 3.3 % of answers beyond noise. Labelling the 13 disagreements showed the descriptions were worth keeping (v1 right 8 times, v2 twice) ([details](docs/phase1/versions.md)).
 5. **Runs anywhere.** *Built and tested on PostgreSQL 14–18 as a non-superuser.* Plain SQL plus an external worker, no untrusted extension. Not yet tested on Supabase, Neon or RDS themselves.
 
 Architecture and SQL sketch: [REPORT.md §4](REPORT.md#4-the-recommended-project-docket). Decisions so far: [docs/adr/](docs/adr/).
@@ -98,8 +98,8 @@ More commands (determinism, learning curve, batch context): [harness/README.md](
 | [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/phase0/](docs/phase0/) | Phase 0 findings, status, draft upstream issue |
 | [docs/notes/](docs/notes/) | Public write-ups |
-| [docs/phase1/](docs/phase1/) | Phase 1 results: the ledger, counts with error bars, Kubernetes triage |
-| [docket/](pgdocket/) | The product: `pgdocket check` (and later the ledger) |
+| [docs/phase1/](docs/phase1/) | Phase 1 results: the ledger, counts with error bars, version comparison, Kubernetes triage |
+| [pgdocket/](pgdocket/) | The product: `pgdocket check`, the ledger and worker, `estimate`, `compare` |
 | [examples/](examples/) | The [5-minute quickstart](examples/quickstart/README.md), and option files for the example checks |
 | `pyproject.toml`, `Dockerfile` | Packaging: the `pgdocket` command and the worker image ([releasing](docs/RELEASING.md)) |
 | [harness/](harness/) | Benchmark harness: `jevbench` CLI, simulated backend, tests |

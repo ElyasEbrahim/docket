@@ -26,3 +26,8 @@ Changing any of these creates a new version in `shadow` status. Phase 0 also sho
 - Gold labels attach to the decision and an options-set hash. When the label set changes, old labels need an explicit remap, and pgdocket refuses to reuse them silently.
 - Storage grows with versions. Retired versions can be compacted to summary statistics.
 - **Batching (resolved by Phase 0, FINDINGS §9–§10):** with 20 rows per request, changing a row's batch neighbours changed its top answer for ~16 % of rows (≈ 5× run-to-run noise). Judging rows one at a time was 2.4 pp more accurate (+0.05 macro-F1) at 1.8× the tokens (~$24 per million rows). **Decision: pgdocket judges one row per request by default.** Batch size stays part of the spec hash, so a version that opts into batching is a different version.
+- **Comparison (implemented 2026-10-22, #15; [docs/phase1/versions.md](../phase1/versions.md)):**
+  - **What was built.** `revise` creates a shadow version without judging anything. `compare` judges a seeded random sample with it, labelled rows first. The active version is re-asked on the same rows as *probe* judgments, which are stored in the ledger, never made current and ignored by the view. Changes are reported against that noise baseline.
+  - **Labels.** The accuracy difference uses labels on the disagreements: where both versions agree, they are equally right. That needs far fewer labels than a gold set.
+  - **Promotion.** `promote` is gated on the shadow version having answered every row, not on a policy check. `retire` stands a shadow version down.
+  - **Not yet.** Calibration shift isn't reported, and calibration doesn't carry over to a promoted version.

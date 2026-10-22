@@ -26,7 +26,7 @@ FROM (SELECT decision_id, version, row_key FROM docket.queue
       LIMIT %(n)s
       FOR UPDATE SKIP LOCKED) c
 WHERE q.decision_id = c.decision_id AND q.version = c.version AND q.row_key = c.row_key
-RETURNING q.decision_id, q.version, q.row_key, q.attempts
+RETURNING q.decision_id, q.version, q.row_key, q.attempts, q.purpose
 """
 
 
@@ -37,7 +37,8 @@ class Worker:
         self.claim_size, self.concurrency, self.max_usd = claim_size, concurrency, max_usd
         self.poll, self.lease, self.log = poll, lease_minutes, log
         self.backends, self.decisions = {}, {}
-        self.totals = {"judged": 0, "skipped_unchanged": 0, "deleted_rows": 0, "failed": 0, "tokens": 0, "usd": 0.0}
+        self.totals = {"judged": 0, "probed": 0, "skipped_unchanged": 0, "deleted_rows": 0, "failed": 0, "tokens": 0,
+                       "usd": 0.0}
 
     def _conn(self):
         import psycopg
@@ -70,17 +71,17 @@ class Worker:
             "SELECT c.row_key, j.input_hash FROM docket.current c JOIN docket.judgment j ON j.id = c.judgment_id "
             "WHERE c.decision_id = %s AND c.version = %s AND c.row_key = ANY(%s)", (did, ver, keys)).fetchall())
 
-    def _dequeue(self, conn, did, ver, keys, token):
-        conn.execute("DELETE FROM docket.queue WHERE decision_id = %s AND version = %s AND row_key = ANY(%s) AND claim = %s",
-                     (did, ver, keys, token))
+    def _dequeue(self, conn, did, ver, keys, token, purpose="live"):
+        conn.execute("DELETE FROM docket.queue WHERE decision_id = %s AND version = %s AND row_key = ANY(%s) "
+                     "AND claim = %s AND purpose = %s", (did, ver, keys, token, purpose))
 
-    def _fail(self, conn, did, ver, keys, token, err):
+    def _fail(self, conn, did, ver, keys, token, err, purpose="live"):
         conn.execute(
             "UPDATE docket.queue SET last_error = %s, claim = NULL, "
             "locked_until = CASE WHEN attempts >= %s THEN NULL "
             "ELSE now() + make_interval(secs => least(3600, 30 * power(2, attempts - 1))) END "
-            "WHERE decision_id = %s AND version = %s AND row_key = ANY(%s) AND claim = %s",
-            (str(err)[:500], MAX_ATTEMPTS, did, ver, keys, token))
+            "WHERE decision_id = %s AND version = %s AND row_key = ANY(%s) AND claim = %s AND purpose = %s",
+            (str(err)[:500], MAX_ATTEMPTS, did, ver, keys, token, purpose))
 
     def process_once(self):
         """Claim and handle one batch. Returns the number of queue rows handled (0 = nothing to do)."""
@@ -89,17 +90,19 @@ class Worker:
             claimed = conn.execute(CLAIM, {"lease": self.lease, "token": token, "max": MAX_ATTEMPTS,
                                            "n": self.claim_size}).fetchall()
             groups = defaultdict(list)
-            for did, ver, key, _ in claimed:
-                groups[(did, ver)].append(key)
-            for (did, ver), keys in groups.items():
-                self._handle(conn, did, ver, keys, token)
+            for did, ver, key, _, purpose in claimed:
+                groups[(did, ver, purpose)].append(key)
+            for (did, ver, purpose), keys in groups.items():
+                self._handle(conn, did, ver, keys, token, purpose)
         return len(claimed)
 
-    def _handle(self, conn, did, ver, keys, token):
+    def _handle(self, conn, did, ver, keys, token, purpose="live"):
+        """purpose 'live': judge changed rows and make the answer current. 'probe': always re-ask (the point is
+        to measure run-to-run noise) and record the answer in the ledger without making it current."""
         d = self._decision(conn, did, ver)
         spec = d["spec"]
         rows = self._rows(conn, d, keys)
-        hashes = self._hashes(conn, did, ver, keys)
+        hashes = self._hashes(conn, did, ver, keys) if purpose == "live" else {}
         gone = [k for k in keys if k not in rows]
         todo, same = [], []
         for k in keys:
@@ -107,7 +110,7 @@ class Worker:
                 h = hashlib.md5(rows[k].encode()).hexdigest()
                 (same if hashes.get(k) == h else todo).append((k, h))
         with conn.transaction():
-            self._dequeue(conn, did, ver, gone + [k for k, _ in same], token)
+            self._dequeue(conn, did, ver, gone + [k for k, _ in same], token, purpose)
         self.totals["deleted_rows"] += len(gone)
         self.totals["skipped_unchanged"] += len(same)
         if not todo:
@@ -120,7 +123,7 @@ class Worker:
                                     spec.get("batch_size", 1))
         except BackendError as e:
             with conn.transaction():
-                self._fail(conn, did, ver, [k for k, _ in todo], token, e)
+                self._fail(conn, did, ver, [k for k, _ in todo], token, e, purpose)
             self.totals["failed"] += len(todo)
             self.log(f"backend error on {len(todo)} rows of decision {did} v{ver}: {e}")
             return
@@ -129,18 +132,19 @@ class Worker:
         values = [read_answer(spec, a) for a in answers]
         with conn.transaction():
             ids = conn.execute(
-                "INSERT INTO docket.judgment (decision_id, version, row_key, input_hash, answer, value, score, tokens) "
-                "SELECT %s, %s, k, h, a::jsonb, v, s, %s FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::float8[]) "
-                "AS t(k, h, a, v, s) RETURNING id, row_key",
-                (did, ver, per_row, [k for k, _ in todo], [h for _, h in todo], [json.dumps(a) for a in answers],
+                "INSERT INTO docket.judgment (decision_id, version, row_key, input_hash, answer, value, score, tokens, purpose) "
+                "SELECT %s, %s, k, h, a::jsonb, v, s, %s, %s FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], "
+                "%s::float8[]) AS t(k, h, a, v, s) RETURNING id, row_key",
+                (did, ver, per_row, purpose, [k for k, _ in todo], [h for _, h in todo], [json.dumps(a) for a in answers],
                  [v for v, _ in values], [s for _, s in values])).fetchall()
-            conn.execute(
-                "INSERT INTO docket.current (decision_id, version, row_key, judgment_id) "
-                "SELECT %s, %s, k, j FROM unnest(%s::bigint[], %s::text[]) AS t(j, k) "
-                "ON CONFLICT (decision_id, version, row_key) DO UPDATE SET judgment_id = EXCLUDED.judgment_id",
-                (did, ver, [i for i, _ in ids], [k for _, k in ids]))
-            self._dequeue(conn, did, ver, [k for k, _ in todo], token)
-        self.totals["judged"] += len(todo)
+            if purpose == "live":
+                conn.execute(
+                    "INSERT INTO docket.current (decision_id, version, row_key, judgment_id) "
+                    "SELECT %s, %s, k, j FROM unnest(%s::bigint[], %s::text[]) AS t(j, k) "
+                    "ON CONFLICT (decision_id, version, row_key) DO UPDATE SET judgment_id = EXCLUDED.judgment_id",
+                    (did, ver, [i for i, _ in ids], [k for _, k in ids]))
+            self._dequeue(conn, did, ver, [k for k, _ in todo], token, purpose)
+        self.totals["probed" if purpose == "probe" else "judged"] += len(todo)
         self.totals["tokens"] += tokens
         self.totals["usd"] = sum(b.cost_usd() for b in self.backends.values() if b.paid)
 

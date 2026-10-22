@@ -4,6 +4,7 @@ The superuser is only used to create a throwaway database and two roles. Everyth
 ordinary role (`owner`), and the application writes to its table as a second role (`app`) that has no grant
 at all on the docket schema. This is the setup of a managed Postgres.
 """
+import csv
 import json
 import os
 import uuid
@@ -61,7 +62,7 @@ def _view(dsn):
 def test_install_is_idempotent_and_needs_no_superuser(env):
     with psycopg.connect(env["owner"]) as c:
         assert c.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user").fetchone()[0] is False
-    assert ledger.install(env["owner"]) == ["001", "002"]
+    assert ledger.install(env["owner"]) == ["001", "002", "003"]
     assert ledger.install(env["owner"]) == []
 
 
@@ -247,3 +248,102 @@ def test_yes_no_labels_are_normalised_and_estimated(env):
                                         "ON d.id = l.decision_id WHERE d.name = 'urgent'")} == {"yes", "no"}
     r = ledger.estimate(env["owner"], "urgent")[0]
     assert r["answer"] == "yes" and r["labels"] == 150 and r["estimate"] is not None
+
+
+def test_compare_a_shadow_version_then_promote(env, capsys):
+    """Revise → compare on a sample (probes leave answers alone) → promotion gated on full coverage → promote."""
+    from pgdocket import cli, compare
+    teams = ["billing", "technical", "sales"]
+    with psycopg.connect(env["owner"], autocommit=True) as c:
+        c.execute("CREATE TABLE shop.routes (id int PRIMARY KEY, body text, team text)")
+        with c.cursor() as cur:
+            cur.executemany("INSERT INTO shop.routes VALUES (%s, %s, %s)",
+                            [(i, teams[i % 3], teams[i % 3]) for i in range(1, 121)])
+    ledger.create(env["owner"], "routes", "shop.routes", "id", ["body"], _spec(env["url"]))
+    Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+    ledger.import_labels(env["owner"], "routes", column="team", sample=45)
+    before = _routes(env["owner"])
+
+    ver, spec = ledger.revise(env["owner"], "routes", options="billing,engineering,sales")
+    assert ver == 2 and spec["model"] == "fake" and [o["name"] for o in spec["options"]] == ["billing", "engineering", "sales"]
+    assert ledger.compare_enqueue(env["owner"], "routes", 2, 60) == 60
+    with psycopg.connect(env["owner"]) as c:
+        assert dict(c.execute("SELECT purpose, count(*) FROM docket.queue WHERE decision_id = "
+                              "(SELECT id FROM docket.decision WHERE name = 'routes') GROUP BY 1").fetchall()) == \
+            {"live": 60, "probe": 60}
+        assert c.execute("SELECT probes_queued, shadow_versions FROM docket.status WHERE name = 'routes'").fetchone() == (60, 1)
+    totals = Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+    assert (totals["judged"], totals["probed"]) == (60, 60)
+    assert _routes(env["owner"]) == before                    # probes and the shadow version leave the view alone
+
+    with psycopg.connect(env["owner"]) as c:
+        data = compare.fetch(c, "routes", 2)
+    r = compare.analyse(data["spec_old"], data["spec_new"], data["rows"], n_boot=300)
+    assert r["n"] == 60 and r["labels"] == 45 and r["noise"] == 0  # labelled rows were sampled first
+    assert r["transitions"][0]["old"] == "technical" and r["transitions"][0]["new"] == "billing"
+    assert r["verdict"] == "keep current" and r["labels_not_options_of_new"] > 0
+
+    # label only the rows where the versions disagree (the people's answer is the `team` column)
+    path = os.path.join(os.environ.get("TMPDIR", "/tmp"), f"disagree-{uuid.uuid4().hex[:6]}.csv")
+    cli.main(["compare", "--dsn", env["owner"], "routes", "2", "--export-disagreements", path])
+    out = capsys.readouterr().out
+    assert "Verdict: **keep current**" in out
+    with open(path, newline="") as f:
+        todo = list(csv.DictReader(f))
+    assert len(todo) == r["disagreements"] - r["disagreements_labelled"] > 0
+    assert {t["v1"] for t in todo} == {"technical"} and {t["v2"] for t in todo} == {"billing"}
+    with psycopg.connect(env["owner"]) as c:
+        drawn = c.execute("SELECT l.row_key FROM docket.label l JOIN docket.decision d ON d.id = l.decision_id "
+                          "WHERE d.name = 'routes' AND l.sampling = 'random' ORDER BY 1 LIMIT 1").fetchone()[0]
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["key", "label"])
+        w.writerows([(t["key"], t["body"]) for t in todo] + [(drawn, teams[int(drawn) % 3])])
+    assert ledger.import_labels(env["owner"], "routes", csv_path=path) == len(todo) + 1
+    with psycopg.connect(env["owner"]) as c:
+        sampling = dict(c.execute("SELECT l.sampling, count(*) FROM docket.label l JOIN docket.decision d "
+                                  "ON d.id = l.decision_id WHERE d.name = 'routes' GROUP BY 1").fetchall())
+        assert sampling == {"random": 45, "manual": len(todo)}   # re-labelling a drawn row keeps it in the sample
+        data = compare.fetch(c, "routes", 2)
+    r2 = compare.analyse(data["spec_old"], data["spec_new"], data["rows"], n_boot=300)
+    assert r2["gain_from"] == "disagreements" and r2["disagreements_right"]["current"] == r2["disagreements"]
+    assert r2["verdict"] == "keep current"
+    with pytest.raises(SystemExit, match="has not judged 60 rows"):
+        ledger.promote(env["owner"], "routes", 2)
+    assert ledger.backfill(env["owner"], "routes", 2) == 120
+    totals = Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+    assert (totals["judged"], totals["skipped_unchanged"]) == (60, 60)   # the sample is not asked twice
+    p = ledger.promote(env["owner"], "routes", 2)
+    assert p["previous"] == 1 and p["missing"] == 0 and p["comparison"]["verdict"] == "keep current"
+    after = _routes(env["owner"])
+    assert {v[1] for v in after.values()} == {2} and "technical" not in {v[0] for v in after.values()}
+    vs = {v["version"]: v for v in ledger.versions(env["owner"], "routes")}
+    assert vs[1]["status"] == "retired" and vs[2]["status"] == "active" and vs[2]["promoted_at"] is not None
+    with psycopg.connect(env["owner"]) as c:
+        assert c.execute("SELECT count(*) FROM docket.judgment j JOIN docket.decision d ON d.id = j.decision_id "
+                         "WHERE d.name = 'routes' AND j.purpose = 'probe'").fetchone()[0] == 60
+
+
+def test_a_shadow_version_judges_new_rows_until_retired(env):
+    ver, _ = ledger.revise(env["owner"], "routes", model="fake-2")
+    with psycopg.connect(env["owner"], autocommit=True) as c:
+        c.execute("INSERT INTO shop.routes VALUES (500, 'sales', 'sales')")
+    with psycopg.connect(env["owner"]) as c:
+        queued = c.execute("SELECT version FROM docket.queue q JOIN docket.decision d ON d.id = q.decision_id "
+                           "WHERE d.name = 'routes' AND row_key = '500' ORDER BY 1").fetchall()
+    assert queued == [(2,), (ver,)]                       # the active version and the shadow both judge it
+    ledger.retire(env["owner"], "routes", ver)
+    with psycopg.connect(env["owner"], autocommit=True) as c:
+        c.execute("INSERT INTO shop.routes VALUES (501, 'sales', 'sales')")
+    with psycopg.connect(env["owner"]) as c:
+        assert c.execute("SELECT count(*) FROM docket.queue q JOIN docket.decision d ON d.id = q.decision_id "
+                         "WHERE d.name = 'routes' AND q.version = %s", (ver,)).fetchone()[0] == 0
+    assert {v["version"]: v["status"] for v in ledger.versions(env["owner"], "routes")} == \
+        {1: "retired", 2: "active", ver: "retired"}
+    with pytest.raises(psycopg.errors.RaiseException, match="no shadow version"):
+        ledger.retire(env["owner"], "routes", 2)
+
+
+def _routes(dsn):
+    with psycopg.connect(dsn) as c:
+        return {r[0]: r[1:] for r in c.execute("SELECT key, answer, version FROM docket.v_routes ORDER BY key")}

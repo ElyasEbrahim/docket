@@ -66,6 +66,8 @@ def import_labels(dsn, name, column=None, csv_path=None, sample=None, seed="1", 
     Labels record how they were chosen: `--sample N` from a column is a uniform random sample ('random');
     a whole column is 'all'; a CSV is 'manual' unless the caller says it was drawn at random (`random=True`,
     e.g. a file from `pgdocket check --export-sample`). Only 'random' labels feed `estimate` by default.
+    Sampling records how a row was chosen, so re-labelling a row that was drawn at random keeps it 'random'.
+    Labels may name an option of any version not yet retired (e.g. one only a shadow version has).
     For yes/no decisions, labels are stored as 'yes' / 'no' (`positive` is the value that means yes).
     """
     with connect(dsn) as conn:
@@ -73,7 +75,9 @@ def import_labels(dsn, name, column=None, csv_path=None, sample=None, seed="1", 
         noul = d["spec"]["kind"] == "noul"
         if noul and positive is None:
             raise SystemExit("a yes/no decision needs --positive: the label value that means yes")
-        names = option_names(d["spec"]) if not noul else None
+        names = None if noul else [r[0] for r in conn.execute(           # options of any version still in use
+            "SELECT DISTINCT o->>'name' FROM docket.version v, jsonb_array_elements(v.spec->'options') o "
+            "WHERE v.decision_id = %s AND v.status <> 'retired'", (d["id"],))]
         if column:
             col = sql.Identifier(column)
             cond = sql.SQL(" AND {}::text = ANY(%(names)s)").format(col) if names else sql.SQL("")
@@ -85,7 +89,7 @@ def import_labels(dsn, name, column=None, csv_path=None, sample=None, seed="1", 
                 WHERE s.{col} IS NOT NULL{cond}
                 ORDER BY md5(s.{key}::text || %(seed)s) {limit}
                 ON CONFLICT (decision_id, row_key) DO UPDATE SET label = EXCLUDED.label, source = EXCLUDED.source,
-                    sampling = EXCLUDED.sampling, labeled_at = now()""").format(
+                    sampling = CASE WHEN docket.label.sampling = 'random' THEN 'random' ELSE EXCLUDED.sampling END, labeled_at = now()""").format(
                 key=sql.Identifier(d["key"]), col=col, value=value, table=sql.SQL(d["source"]), cond=cond,
                 limit=sql.SQL("LIMIT {}").format(sql.Literal(int(sample))) if sample else sql.SQL(""))
             cur = conn.execute(q, {"did": d["id"], "src": f"column:{column}", "seed": ":" + str(seed), "names": names,
@@ -106,7 +110,7 @@ def import_labels(dsn, name, column=None, csv_path=None, sample=None, seed="1", 
         with conn.cursor() as cur:
             cur.executemany("INSERT INTO docket.label (decision_id, row_key, label, source, sampling) VALUES (%s, %s, %s, %s, %s) "
                             "ON CONFLICT (decision_id, row_key) DO UPDATE SET label = EXCLUDED.label, "
-                            "source = EXCLUDED.source, sampling = EXCLUDED.sampling, labeled_at = now()", rows)
+                            "source = EXCLUDED.source, sampling = CASE WHEN docket.label.sampling = 'random' THEN 'random' ELSE EXCLUDED.sampling END, labeled_at = now()", rows)
         return len(rows)
 
 
@@ -157,5 +161,74 @@ def estimate(dsn, name, answer=None, where=None, level=0.95, include_manual=Fals
     sampling = ["random", "all", "manual"] if include_manual else ["random"]
     with connect(dsn) as conn:
         cur = conn.execute("SELECT * FROM docket.estimate(%s, %s, %s, %s, %s)", (name, answer, where, level, sampling))
+        cols = [c.name for c in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def revise(dsn, name, question=None, options=None, options_file=None, model=None, backend=None, batch_size=None,
+           backfill=False):
+    """Add a shadow version: the active spec with the given fields replaced. Nothing is judged unless `backfill`;
+    `compare` judges a sample first. Returns (version, spec)."""
+    with connect(dsn) as conn:
+        spec = dict(_decision(conn, name)["spec"])
+        if question:
+            spec["question"] = question
+        if options or options_file:
+            spec["options"] = load_spec("choice", "x", options, options_file)["options"]
+        for k, v in (("model", model), ("backend", backend), ("batch_size", batch_size)):
+            if v is not None:
+                spec[k] = v
+        validate(spec)
+        ver = conn.execute("SELECT docket.revise(%s, %s, %s)", (name, Jsonb(spec), backfill)).fetchone()[0]
+    return ver, spec
+
+
+def backfill(dsn, name, version=None):
+    with connect(dsn) as conn:
+        return conn.execute("SELECT docket.backfill(%s, %s)", (name, version)).fetchone()[0]
+
+
+def compare_enqueue(dsn, name, version, n, seed="1"):
+    with connect(dsn) as conn:
+        return conn.execute("SELECT docket.compare_enqueue(%s, %s, %s, %s)", (name, version, n, str(seed))).fetchone()[0]
+
+
+def unjudged(conn, did, active, version):
+    """Rows the active version answers that `version` doesn't yet: promoting now would show them as pending."""
+    return conn.execute(
+        "SELECT count(*) FROM docket.current a WHERE a.decision_id = %s AND a.version = %s AND NOT EXISTS "
+        "(SELECT 1 FROM docket.current s WHERE s.decision_id = a.decision_id AND s.version = %s AND s.row_key = a.row_key)",
+        (did, active, version)).fetchone()[0]
+
+
+def promote(dsn, name, version, force=False):
+    """Make a shadow version active. Refused while it has not judged every row the active version answers, unless
+    `force` (those rows show as pending until the worker catches up). Returns the stored comparison, if any."""
+    with connect(dsn) as conn:
+        d = _decision(conn, name)
+        missing = unjudged(conn, d["id"], d["version"], version)
+        if missing and not force:
+            raise SystemExit(f"v{version} has not judged {missing:,} rows that v{d['version']} answers; promoting now would "
+                             f"show them as pending. Run `pgdocket backfill {name} --version {version}` and the worker "
+                             "first, or pass --force.")
+        comparison = conn.execute("SELECT comparison FROM docket.version WHERE decision_id = %s AND version = %s",
+                                  (d["id"], version)).fetchone()
+        conn.execute("SELECT docket.promote(%s, %s)", (name, version))
+    return {"previous": d["version"], "missing": missing, "comparison": comparison[0] if comparison else None}
+
+
+def retire(dsn, name, version):
+    with connect(dsn) as conn:
+        conn.execute("SELECT docket.retire(%s, %s)", (name, version))
+
+
+def versions(dsn, name):
+    with connect(dsn) as conn:
+        d = _decision(conn, name)
+        cur = conn.execute(
+            "SELECT v.version, v.status, v.created_at, v.promoted_at, v.spec, v.calibration IS NOT NULL AS calibrated, "
+            "v.comparison->>'verdict' AS verdict, "
+            "(SELECT count(*) FROM docket.current c WHERE c.decision_id = v.decision_id AND c.version = v.version) AS judged "
+            "FROM docket.version v WHERE v.decision_id = %s ORDER BY v.version", (d["id"],))
         cols = [c.name for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]

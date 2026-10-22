@@ -1,10 +1,11 @@
 # pgdocket
 
-Three pieces work today:
+Four pieces work today:
 
 - **[`pgdocket check`](#pgdocket-check)**: how trustworthy is an AI decision on your table? Read-only.
 - **[The ledger](#the-ledger)**: decisions stored in Postgres and kept current as rows change.
 - **[Counts with error bars](#counts-with-error-bars)**: how many rows truly have each answer, with a confidence interval.
+- **[Comparing versions](#comparing-versions)**: is a revised question, option set or model better than the current one?
 
 # `pgdocket check`
 
@@ -142,3 +143,31 @@ SELECT answer, model_count, estimate, ci_low, ci_high, reliable FROM docket.esti
 - **Only labels drawn at random count.** `--sample N` records labels as random, and so does a CSV imported with `--random`. Everything else needs `--include-manual`.
 - **No labelled example of an answer means no interval.** Nothing measures how often the model is wrong there.
 - **Validation:** coverage tests run in CI, and on 500 real Kubernetes issues the intervals held 98–100 % when reliable and were 30–50 % narrower than labels alone. See [docs/phase1/counts.md](../docs/phase1/counts.md).
+
+# Comparing versions
+
+Change a decision safely: add a shadow version, judge a sample under both versions, and switch only if the new one is better.
+
+```bash
+pgdocket revise triage --options-file teams-v2.json      # shadow version v2; the view keeps showing v1
+pgdocket compare triage 2 --sample 300 --run             # v2 judges the sample; v1 is asked again (noise baseline)
+pgdocket compare triage 2 --export-disagreements todo.csv
+pgdocket label triage --csv todo.csv                     # label only the rows where they disagree
+pgdocket compare triage 2                                # re-report from stored answers
+pgdocket backfill triage --version 2 && pgdocket worker --once
+pgdocket promote triage 2                                # or: pgdocket retire triage 2
+```
+
+The report gives:
+- the share of answers the new version changes, against the share that changes when the current version is simply asked again, and the excess with a 95 % interval;
+- the most common old → new moves;
+- the accuracy difference with a 95 % interval and an exact sign test on the disagreements;
+- tokens per row;
+- a verdict: `promote`, `keep current`, `no clear difference` (with how much worse or better the new version could be) or `needs labels`.
+
+- **Re-asks are probes.** They are stored in the ledger with `purpose = 'probe'` and never become the current answer.
+- **Only disagreements need labels.** Where both versions give the same answer, both are right or both are wrong. Label every row where they disagree, and the accuracy difference is known on the whole sample.
+- **`promote` waits for full coverage.** It refuses while the new version hasn't answered every row the current one answers (`--force` overrides). Calibration is per version: calibrate again after promoting.
+- **A shadow version judges new rows too.** It keeps up with new and changed rows until it is promoted or retired, and that costs tokens.
+
+On Kubernetes routing, dropping option descriptions saved 14 % of tokens. Labelling the 13 disagreements showed the descriptions were worth keeping. See [docs/phase1/versions.md](../docs/phase1/versions.md).

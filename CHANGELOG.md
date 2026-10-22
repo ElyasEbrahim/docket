@@ -2,6 +2,30 @@
 
 Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repository.
 
+## 2026-10-22
+
+### Added (version comparison, #15)
+- **`pgdocket revise` / `compare` / `backfill` / `promote` / `retire` / `versions`.** `revise` adds a shadow version (new question, options, model or backend) without changing any answer. `compare` judges a sample under the shadow version and re-asks the active one on the same rows, then reports:
+  - the answers changed beyond that run-to-run noise, with a paired bootstrap interval, and the most common moves;
+  - the accuracy difference;
+  - tokens per row;
+  - a verdict.
+- **Only disagreements need labels.** Where both versions agree they are equally right, so `compare --export-disagreements` lists the unlabelled rows where they disagree. Once those are labelled, the accuracy difference is known on the whole sample. The report adds an exact sign test.
+- **`promote` is gated.** It refuses while the shadow version hasn't answered every row (`--force`). `retire` stops a shadow version from judging new rows.
+- Migration `003`:
+  - *probe* judgments: `judgment.purpose` and `queue.purpose`; probes never become current and views ignore them;
+  - `docket.compare_enqueue()`, `docket.retire()`, `docket.create_view()`;
+  - `version.comparison` and `version.promoted_at`;
+  - `docket.status` gains `probes_queued` and `shadow_versions`.
+- **Experiment on Kubernetes routing ($0.024).**
+  - Dropping the SIG descriptions saved 14 % of tokens and moved 3.3 % [1.0, 6.0] of answers beyond noise.
+  - 80 random labels showed no difference. Labelling the 10 remaining disagreements (90 labels) gave the same answer as all 300 human labels: v1 right 8 times, v2 twice, −2.0 pp [−4.0, 0.0], sign test p = 0.11. The descriptions stay; v2 was retired.
+  - `jevbench comparevalidate` checks the verdict against every label; write-up in `docs/phase1/versions.md`.
+
+### Changed
+- Re-labelling a row that was drawn at random keeps it in the random sample (`label.sampling` records how the row was chosen).
+- Labels may name an option of any version still in use, such as one only a shadow version has.
+
 ## 2026-10-20
 
 ### Added (counts with error bars, #14)

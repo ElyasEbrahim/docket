@@ -87,6 +87,6 @@ How to read this: 89.1 % is just under the 90 % target, but well inside the nois
 
 - Reads are eventually consistent: a new row is `pending` until the worker has judged it.
 - The ledger grows with every re-judgment. Archiving or partitioning old versions is future work.
-- Shadow versions (`docket.revise` / `docket.promote`) exist in SQL but have no CLI or diff report yet (Phase 3).
+- Shadow versions (`docket.revise` / `docket.promote`) exist in SQL but have no CLI or diff report yet (Phase 3). *Update 2026-10-22: built in #15; see [versions.md](versions.md).*
 - The threshold is chosen on out-of-fold scores, but the view applies it to the final calibrator's scores. These are close, not identical.
 - Not yet tested on Supabase, Neon or RDS themselves. The non-superuser CI setup mirrors their permission model, but not their exact configuration.

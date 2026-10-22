@@ -10,6 +10,12 @@
   pgdocket calibrate  fit a calibrator and a guaranteed threshold from the labels
   pgdocket estimate   how many rows truly have each answer, with a confidence interval
   pgdocket status     decisions, queue depth, errors, labels, tokens
+  pgdocket revise     add a shadow version (new question, options or model) without changing answers
+  pgdocket compare    judge a sample under both versions; report what changed beyond run-to-run noise
+  pgdocket backfill   queue every row for a version
+  pgdocket promote    make a shadow version the one the view shows
+  pgdocket retire     stand down a shadow version (it stops judging new rows)
+  pgdocket versions   list a decision's versions
   pgdocket drop       remove a decision (triggers, view, ledger); the source table is untouched
 """
 import argparse
@@ -111,6 +117,44 @@ def main(argv=None):
     es.add_argument("--include-manual", action="store_true", help="also use labels not drawn at random (intervals may be biased)")
     st = sub.add_parser("status", help="decisions, queue, errors, labels, tokens")
     dsn_arg(st)
+    rv = sub.add_parser("revise", help="add a shadow version; the view keeps showing the active one")
+    dsn_arg(rv)
+    rv.add_argument("name")
+    rv.add_argument("--question")
+    rv.add_argument("--options", help="choice: comma-separated option names (replaces the options)")
+    rv.add_argument("--options-file", help='choice: JSON list of {"name", "description"}')
+    rv.add_argument("--model")
+    rv.add_argument("--backend")
+    rv.add_argument("--batch-size", type=int)
+    rv.add_argument("--backfill", action="store_true", help="queue every row now (default: compare a sample first)")
+    cp = sub.add_parser("compare", help="compare a shadow version with the active one on a sample")
+    dsn_arg(cp)
+    cp.add_argument("name")
+    cp.add_argument("version", type=int)
+    cp.add_argument("--sample", type=int, default=0,
+                    help="queue this many rows (labelled ones first) for both versions; 0: report on what is judged")
+    cp.add_argument("--seed", default="1")
+    cp.add_argument("--run", action="store_true", help="run the worker until the queue is empty, then report")
+    cp.add_argument("--max-usd", type=float, default=1.0, help="with --run: stop after spending this much")
+    cp.add_argument("--out", help="also write report.md and report.json to this folder")
+    cp.add_argument("--export-disagreements", metavar="CSV",
+                    help="write the unlabelled rows where the versions disagree, to label and import with `label --csv`")
+    bf = sub.add_parser("backfill", help="queue every row for a version")
+    dsn_arg(bf)
+    bf.add_argument("name")
+    bf.add_argument("--version", type=int, help="default: every version that isn't retired")
+    pr = sub.add_parser("promote", help="make a shadow version active")
+    dsn_arg(pr)
+    pr.add_argument("name")
+    pr.add_argument("version", type=int)
+    pr.add_argument("--force", action="store_true", help="promote even if some rows have no answer from it yet")
+    rt = sub.add_parser("retire", help="stand down a shadow version; its judgments stay in the ledger")
+    dsn_arg(rt)
+    rt.add_argument("name")
+    rt.add_argument("version", type=int)
+    vs = sub.add_parser("versions", help="list a decision's versions")
+    dsn_arg(vs)
+    vs.add_argument("name")
     dr = sub.add_parser("drop", help="remove a decision and its ledger")
     dsn_arg(dr)
     dr.add_argument("name")
@@ -125,7 +169,8 @@ def main(argv=None):
         reanalyze(a.folder, a.precision_target)
         print(f"report: {a.folder}/report.md")
         return
-    if a.cmd in ("install", "create", "worker", "label", "calibrate", "estimate", "status", "drop"):
+    if a.cmd in ("install", "create", "worker", "label", "calibrate", "estimate", "status", "drop", "revise", "compare",
+                 "backfill", "promote", "retire", "versions"):
         if not a.dsn:
             sys.exit("no database: pass --dsn or set DATABASE_URL")
         return _ledger_command(a)
@@ -201,6 +246,35 @@ def _ledger_command(a):
         with ledger.connect(a.dsn) as conn:
             conn.execute("SELECT docket.drop_decision(%s)", (a.name,))
         print(f"decision {a.name} dropped")
+    elif a.cmd == "revise":
+        ver, spec = ledger.revise(a.dsn, a.name, a.question, a.options, a.options_file, a.model, a.backend, a.batch_size,
+                                  a.backfill)
+        print(f"{a.name} v{ver} added as a shadow version; docket.v_{a.name} still shows the active one")
+        print(f"next: pgdocket compare {a.name} {ver} --sample 200 --run" if not a.backfill
+              else f"every row is queued for v{ver}; when the worker is done: pgdocket compare {a.name} {ver} --sample 200")
+    elif a.cmd == "compare":
+        _compare(a, ledger)
+    elif a.cmd == "backfill":
+        n = ledger.backfill(a.dsn, a.name, a.version)
+        print(f"{n:,} rows queued")
+    elif a.cmd == "promote":
+        r = ledger.promote(a.dsn, a.name, a.version, a.force)
+        verdict = (r["comparison"] or {}).get("verdict")
+        print(f"{a.name}: v{a.version} is active; v{r['previous']} is retired"
+              + (f" (last comparison: {verdict})" if verdict else " (never compared)"))
+        if r["missing"]:
+            print(f"{r['missing']:,} rows show as pending until the worker judges them under v{a.version}")
+        print(f"calibration is per version: label rows and run `pgdocket calibrate {a.name}` before relying on `auto`")
+    elif a.cmd == "retire":
+        ledger.retire(a.dsn, a.name, a.version)
+        print(f"{a.name} v{a.version} retired: it no longer judges new or changed rows")
+    elif a.cmd == "versions":
+        for v in ledger.versions(a.dsn, a.name):
+            spec = v["spec"]
+            what = f"{spec['model']}, {len(spec.get('options', []))} options" if spec["kind"] == "choice" else spec["model"]
+            print(f"v{v['version']:<3} {v['status']:<8} judged {v['judged']:>8,}  {'calibrated' if v['calibrated'] else '':<10}  "
+                  f"{v['verdict'] or '':<20} {what}  · created {v['created_at']:%Y-%m-%d %H:%M}"
+                  + (f", promoted {v['promoted_at']:%Y-%m-%d %H:%M}" if v["promoted_at"] else ""))
     elif a.cmd == "status":
         rows = ledger.status(a.dsn)
         if not rows:
@@ -208,6 +282,33 @@ def _ledger_command(a):
         for r in rows:
             print(f"{r['name']:<24} v{r['version']}  judged {r['judged']:>8,}  queued {r['queued']:>6,}  errors {r['errors']:>4,}  "
                   f"labels {r['labels']:>5,}  tokens {r['tokens']:>12,}  {'calibrated' if r['calibrated'] else 'not calibrated'}")
+
+
+def _compare(a, ledger):
+    from . import compare
+    if a.sample:
+        n = ledger.compare_enqueue(a.dsn, a.name, a.version, a.sample, a.seed)
+        print(f"{n} rows queued for v{a.version} and for a re-ask of the active version")
+    if a.run:
+        from .worker import Worker
+        totals = Worker(a.dsn, api_key=os.environ.get("TYPESAFE_API_KEY") or None, max_usd=a.max_usd).run(once=True)
+        print(f"worker: {totals['judged']} judged, {totals['probed']} re-asked, ${totals['usd']:.4f}")
+    with ledger.connect(a.dsn) as conn:
+        data = compare.fetch(conn, a.name, a.version)
+        result = compare.analyse(data["spec_old"], data["spec_new"], data["rows"])
+        if data["pending"]:
+            result.setdefault("reasons", []).insert(0, f"{data['pending']} queued judgments are not done yet; "
+                                                       "this report covers only finished rows.")
+        if result["n"]:
+            compare.store(conn, data["decision_id"], a.version, result)
+        if a.export_disagreements:
+            k = compare.export_disagreements(conn, data, a.export_disagreements)
+            print(f"wrote {k} rows to {a.export_disagreements}; fill in the label column, then "
+                  f"`pgdocket label {a.name} --csv {a.export_disagreements}` and compare again")
+    md = compare.render(a.name, data, result) if result["n"] else None
+    if a.out and md:
+        print(f"report: {compare.write(a.out, md, result)}")
+    print(md if md else "\n".join(result["reasons"]))
 
 
 if __name__ == "__main__":
