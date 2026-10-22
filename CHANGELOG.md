@@ -4,6 +4,22 @@ Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repo
 
 ## 2026-10-22
 
+### Fixed (calibration across versions, #16)
+- **The guaranteed threshold is now chosen and applied on the model's own score.**
+  - *Before:* `calibrate` chose it on cross-fitted calibrated scores, but the view applied it to the final calibrator's scores, a different scale. On real Kubernetes answers this left a threshold above every row (`auto` empty while 21.7 % coverage was reported). It could, in principle, also accept rows the guarantee never tested. Whether a threshold existed depended on the random fold assignment.
+  - *Now:* the raw score doesn't depend on the labels, so the test holds exactly and the view applies what was tested. On the same labels, coverage was unchanged (95.0 %), and a held-out check gave 89.4 % precision on 94 auto-routed issues (was 89.1 % on 92).
+  - *Compatibility:* calibrations stored earlier keep their old rule until refitted.
+- **`promote` turned automation off:** the new version had no calibrator, so `auto` became NULL everywhere. It now refits the new version on the same labels and precision target, in the same transaction.
+- **`calibrate` used hand-picked labels,** including the disagreements `compare` exports, which biases it toward hard rows. It now uses `random` and `all` labels; `--include-manual` opts in.
+- **Labels for an option a version lacks** were dropped from its calibration, which inflated its precision. They now count as wrong.
+- **`auto` is false, not NULL,** when a calibrated version has no threshold reaching its target.
+
+### Added (#16)
+- **`compare` shows automation, not just accuracy.** With 30+ random labels it calibrates both versions on them and reports calibration error, the guaranteed threshold and the share of compared rows each would mark `auto`. On Kubernetes routing, the SIG descriptions let 95.0 % of issues be auto-routed at 90 % precision, against 90.0 % without them (all 300 labels). With 80 labels, the gap is 78.3 % against 74.7 %.
+- Migration `004`: the view applies thresholds marked `threshold_on: "raw score"` to `judgment.score`.
+- `calibration.auto()` and `raw_score()`, Python twins of the view, checked row by row against SQL.
+- A CI simulation that checks the precision guarantee where the view applies it, plus an exact-coverage assertion.
+
 ### Added (version comparison, #15)
 - **`pgdocket revise` / `compare` / `backfill` / `promote` / `retire` / `versions`.** `revise` adds a shadow version (new question, options, model or backend) without changing any answer. `compare` judges a sample under the shadow version and re-asks the active one on the same rows, then reports:
   - the answers changed beyond that run-to-run noise, with a paired bootstrap interval, and the most common moves;

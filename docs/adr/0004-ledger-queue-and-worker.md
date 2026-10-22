@@ -30,7 +30,7 @@ ADR 0001 puts pgdocket's core in plain SQL with an external worker. ADR 0002 mak
 
 Failures back off exponentially. After 5 attempts a row is left with its error and shows as `error` in the view. The worker wakes on `NOTIFY docket` and polls as a fallback.
 
-**Reads.** Each decision gets a view `docket.v_<name>` over the source table. It has: key, status (`pending` / `judged` / `missing` / `error`), answer, raw score, calibrated confidence, `auto` (confidence ≥ the guaranteed threshold), judged time and version. Calibration is applied by an `IMMUTABLE` SQL function from parameters stored on the version, so a new calibration takes effect without re-judging.
+**Reads.** Each decision gets a view `docket.v_<name>` over the source table. It has: key, status (`pending` / `judged` / `missing` / `error`), answer, raw score, calibrated confidence, `auto` (the model's own score ≥ the guaranteed threshold, since #16; false when no threshold reaches the target), judged time and version. Calibration is applied by an `IMMUTABLE` SQL function from parameters stored on the version, so a new calibration takes effect without re-judging.
 
 ## Consequences
 

@@ -25,6 +25,24 @@
       -0.0375,
       0.0375
     ],
+    "calibration": {
+      "current": {
+        "n_labels": 80,
+        "precision_target": 0.9,
+        "ece_raw": 0.09519065656565663,
+        "ece_calibrated": 0.029877354673902772,
+        "threshold": 0.968,
+        "auto_share": 0.7833333333333333
+      },
+      "new": {
+        "n_labels": 80,
+        "precision_target": 0.9,
+        "ece_raw": 0.0741249999999999,
+        "ece_calibrated": 0.05230952202986442,
+        "threshold": 0.948,
+        "auto_share": 0.7466666666666667
+      }
+    },
     "verdict": "no clear difference",
     "tokens_per_row_old": 1023.7133333333334,
     "tokens_per_row_new": 884.0,
@@ -56,6 +74,24 @@
       -0.0375,
       0.0375
     ],
+    "calibration": {
+      "current": {
+        "n_labels": 80,
+        "precision_target": 0.9,
+        "ece_raw": 0.09519065656565663,
+        "ece_calibrated": 0.029877354673902772,
+        "threshold": 0.968,
+        "auto_share": 0.8133333333333334
+      },
+      "new": {
+        "n_labels": 80,
+        "precision_target": 0.9,
+        "ece_raw": 0.0741249999999999,
+        "ece_calibrated": 0.05230952202986442,
+        "threshold": 0.948,
+        "auto_share": 0.7666666666666667
+      }
+    },
     "verdict": "no clear difference",
     "tokens_per_row_old": 1026.4533333333334,
     "tokens_per_row_new": 884.0,
@@ -87,6 +123,24 @@
       -0.04,
       0.0
     ],
+    "calibration": {
+      "current": {
+        "n_labels": 80,
+        "precision_target": 0.9,
+        "ece_raw": 0.09519065656565663,
+        "ece_calibrated": 0.029877354673902772,
+        "threshold": 0.968,
+        "auto_share": 0.7833333333333333
+      },
+      "new": {
+        "n_labels": 80,
+        "precision_target": 0.9,
+        "ece_raw": 0.0741249999999999,
+        "ece_calibrated": 0.05230952202986442,
+        "threshold": 0.948,
+        "auto_share": 0.7466666666666667
+      }
+    },
     "verdict": "no clear difference",
     "tokens_per_row_old": 1023.7133333333334,
     "tokens_per_row_new": 884.0,
@@ -118,6 +172,24 @@
       -0.04,
       0.0
     ],
+    "calibration": {
+      "current": {
+        "n_labels": 300,
+        "precision_target": 0.9,
+        "ece_raw": 0.060192929292929236,
+        "ece_calibrated": 0.03006551768734448,
+        "threshold": 0.675929292929293,
+        "auto_share": 0.95
+      },
+      "new": {
+        "n_labels": 300,
+        "precision_target": 0.9,
+        "ece_raw": 0.06026666666666663,
+        "ece_calibrated": 0.04802087901969024,
+        "threshold": 0.7169999999999999,
+        "auto_share": 0.9
+      }
+    },
     "verdict": "no clear difference",
     "tokens_per_row_old": 1023.7133333333334,
     "tokens_per_row_new": 884.0,

@@ -120,3 +120,44 @@ def test_sign_test_matches_the_binomial_distribution():
     assert compare.sign_test(8, 2) == 2 * (1 + 10 + 45) / 1024
     assert compare.sign_test(0, 0) == 1.0 and compare.sign_test(5, 5) == 1.0
     assert compare.sign_test(0, 6) == 2 / 64
+
+
+def _conf(pick, p):
+    return {"choice": pick, "probabilities": {o: (p if o == pick else (1 - p) / 2) for o in OPTS}}
+
+
+def test_calibration_compares_how_many_rows_each_version_could_auto_accept():
+    """Same accuracy, but only the new version's confidence separates right from wrong: it can auto-accept more."""
+    rng = np.random.default_rng(5)
+    truth = [OPTS[i % 3] for i in range(240)]
+    picks = [t if rng.random() < 0.85 else _other(t, rng) for t in truth]
+    rows = [{"old": _conf(p, 0.7), "probe": _conf(p, 0.7), "label": t if i < 160 else None,
+             "new": _conf(p, 0.97 if p == t else 0.5)} for i, (t, p) in enumerate(zip(truth, picks))]
+    r = compare.analyse(SPEC, SPEC, rows, n_boot=200, precision_target=0.9)
+    cur, new = r["calibration"]["current"], r["calibration"]["new"]
+    assert cur["n_labels"] == new["n_labels"] == 160 and cur["precision_target"] == 0.9
+    assert cur["auto_share"] is None                       # flat confidence at 85 % accuracy: nothing reaches 90 %
+    assert new["auto_share"] > 0.7 and new["ece_calibrated"] < 0.1
+    assert any("Auto-accept at ≥ 90 % precision" in x for x in r["reasons"])
+    md = compare.render("t", {"active": 1, "version": 2, "spec_old": SPEC, "spec_new": SPEC}, r)
+    assert "## Calibration on the same 160 random labels" in md
+
+
+def test_no_calibration_comparison_with_too_few_random_labels():
+    truth = [OPTS[i % 3] for i in range(60)]
+    r = compare.analyse(SPEC, SPEC, _rows(truth, truth, truth, truth, labelled=20), n_boot=100)
+    assert "calibration" not in r
+
+
+def test_labels_of_a_removed_option_count_as_wrong_for_the_threshold():
+    """A version without `technical` can't be right on technical rows; dropping those labels would inflate precision."""
+    from pgdocket import calibration
+    v2 = {**SPEC, "options": [{"name": "billing"}, {"name": "sales"}]}
+    two = lambda pick: {"choice": pick, "probabilities": {o: (0.95 if o == pick else 0.05) for o in ("billing", "sales")}}
+    labels = ["billing", "sales", "technical"] * 40
+    answers = [two("billing" if l == "technical" else l) for l in labels]
+    cal = calibration.fit(v2, answers, labels, precision_target=0.9)
+    assert cal["labels_not_options"] == 40 and cal["n_labels"] == 120
+    assert abs(cal["accuracy"] - 2 / 3) < 1e-9 and cal["threshold"] is None    # true precision 67 %: no guarantee
+    kept = [i for i, l in enumerate(labels) if l != "technical"]
+    assert calibration.fit(v2, [answers[i] for i in kept], [labels[i] for i in kept], 0.9)["threshold"] is not None

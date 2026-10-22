@@ -8,7 +8,7 @@ from psycopg import sql
 from psycopg.types.json import Jsonb
 
 from . import calibration
-from .spec import option_names, validate
+from .spec import validate
 
 MIGRATION_TABLE = "CREATE SCHEMA IF NOT EXISTS docket; " \
                   "CREATE TABLE IF NOT EXISTS docket.migration (version text PRIMARY KEY, " \
@@ -114,25 +114,30 @@ def import_labels(dsn, name, column=None, csv_path=None, sample=None, seed="1", 
         return len(rows)
 
 
-def calibrate(dsn, name, precision_target=0.9, alpha=0.05):
-    """Fit a calibrator on labeled rows that have a current answer, and store it on the active version."""
+def calibrate(dsn, name, precision_target=0.9, alpha=0.05, include_manual=False):
+    """Fit a calibrator on labeled rows that have a current answer, and store it on the active version.
+
+    Uses labels drawn at random or a whole column. Hand-picked labels ('manual', e.g. the disagreements exported by
+    `compare`) are skipped unless `include_manual`: rows chosen for being hard would bias the calibrator, and the
+    threshold guarantee assumes the labelled rows are like the rest.
+    """
     with connect(dsn) as conn:
-        d = _decision(conn, name)
-        rows = conn.execute(
-            "SELECT l.label, j.answer FROM docket.label l "
-            "JOIN docket.current c ON c.decision_id = l.decision_id AND c.version = %s AND c.row_key = l.row_key "
-            "JOIN docket.judgment j ON j.id = c.judgment_id WHERE l.decision_id = %s ORDER BY l.row_key",
-            (d["version"], d["id"])).fetchall()
-        spec = d["spec"]
-        if spec["kind"] == "choice":
-            names = set(option_names(spec))
-            rows = [r for r in rows if r[0] in names]
-            labels = [r[0] for r in rows]
-        else:
-            labels = [r[0] == "yes" for r in rows]                    # normalised at import
-        cal = calibration.fit(spec, [r[1] for r in rows], labels, precision_target, alpha)
-        conn.execute("UPDATE docket.version SET calibration = %s WHERE decision_id = %s AND version = %s",
-                     (Jsonb(cal), d["id"], d["version"]))
+        return _calibrate(conn, _decision(conn, name), precision_target, alpha, include_manual)
+
+
+def _calibrate(conn, d, precision_target=0.9, alpha=0.05, include_manual=False):
+    sampling = ["random", "all", "manual"] if include_manual else ["random", "all"]
+    rows = conn.execute(
+        "SELECT l.label, j.answer FROM docket.label l "
+        "JOIN docket.current c ON c.decision_id = l.decision_id AND c.version = %s AND c.row_key = l.row_key "
+        "JOIN docket.judgment j ON j.id = c.judgment_id WHERE l.decision_id = %s AND l.sampling = ANY(%s) "
+        "ORDER BY l.row_key", (d["version"], d["id"], sampling)).fetchall()
+    spec = d["spec"]
+    # choice labels naming another version's option stay in: they count as wrong for this one
+    labels = [r[0] for r in rows] if spec["kind"] == "choice" else [r[0] == "yes" for r in rows]  # yes/no normalised
+    cal = calibration.fit(spec, [r[1] for r in rows], labels, precision_target, alpha) | {"sampling": sampling}
+    conn.execute("UPDATE docket.version SET calibration = %s WHERE decision_id = %s AND version = %s",
+                 (Jsonb(cal), d["id"], d["version"]))
     return cal
 
 
@@ -203,7 +208,9 @@ def unjudged(conn, did, active, version):
 
 def promote(dsn, name, version, force=False):
     """Make a shadow version active. Refused while it has not judged every row the active version answers, unless
-    `force` (those rows show as pending until the worker catches up). Returns the stored comparison, if any."""
+    `force` (those rows show as pending until the worker catches up). Calibration belongs to a version: when the
+    old one was calibrated, the new one is fitted on the same labels and precision target in the same transaction,
+    so `auto` keeps working. Returns the stored comparison and the new calibration (or why there is none)."""
     with connect(dsn) as conn:
         d = _decision(conn, name)
         missing = unjudged(conn, d["id"], d["version"], version)
@@ -211,10 +218,20 @@ def promote(dsn, name, version, force=False):
             raise SystemExit(f"v{version} has not judged {missing:,} rows that v{d['version']} answers; promoting now would "
                              f"show them as pending. Run `pgdocket backfill {name} --version {version}` and the worker "
                              "first, or pass --force.")
-        comparison = conn.execute("SELECT comparison FROM docket.version WHERE decision_id = %s AND version = %s",
-                                  (d["id"], version)).fetchone()
+        comparison, prev = conn.execute(
+            "SELECT s.comparison, a.calibration FROM docket.version s, docket.version a WHERE s.decision_id = %s "
+            "AND s.version = %s AND a.decision_id = s.decision_id AND a.version = %s", (d["id"], version, d["version"])
+        ).fetchone()
         conn.execute("SELECT docket.promote(%s, %s)", (name, version))
-    return {"previous": d["version"], "missing": missing, "comparison": comparison[0] if comparison else None}
+        cal, why = None, "the previous version was not calibrated"
+        if prev:
+            try:
+                cal = _calibrate(conn, _decision(conn, name), prev["precision_target"], prev.get("alpha", 0.05),
+                                 "manual" in prev.get("sampling", []))
+            except ValueError as e:
+                why = str(e)
+    return {"previous": d["version"], "missing": missing, "comparison": comparison, "calibration": cal,
+            "calibration_missing": None if cal else why}
 
 
 def retire(dsn, name, version):

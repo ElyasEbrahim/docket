@@ -108,11 +108,12 @@ WHERE status = 'judged' AND auto;            -- the answers you can act on witho
 | `status` | `pending` (queued), `judged`, `missing` (not judged yet), `error` (failed 5 times; see `docket.queue.last_error`) |
 | `answer` | choice: the option; yes/no: `yes` / `no` (at the calibrated threshold, or 0.5 before calibration) |
 | `confidence` | calibrated probability of that option (choice) or of yes (yes/no); raw before calibration |
-| `auto` | confidence ≥ the guaranteed threshold; NULL until `pgdocket calibrate` has run |
+| `auto` | the model's own score (`raw_score`) ≥ the guaranteed threshold, the score the guarantee was tested on; false when no threshold reaches the target; NULL until `pgdocket calibrate` has run |
 
 - **Triggers** queue a row only when a judged column actually changes. Application roles need no grant on the `docket` schema, because the trigger function is `SECURITY DEFINER`.
 - **The worker** skips rows whose input hasn't changed, retries with back-off, and stops at `--max-usd`.
 - **The ledger** (`docket.judgment`) is append-only: every answer ever given stays, with its input hash, model and time.
+- **`calibrate` uses labels drawn at random or a whole column.** Hand-picked labels, such as the disagreements `compare` exports, would bias it toward hard rows. They need `--include-manual`.
 
 Measured: 100,000 rows read in milliseconds; live median of 0.7 s from insert to answer; calibration on 200 labels. See [docs/phase1/ledger.md](../docs/phase1/ledger.md).
 
@@ -162,12 +163,14 @@ The report gives:
 - the share of answers the new version changes, against the share that changes when the current version is simply asked again, and the excess with a 95 % interval;
 - the most common old → new moves;
 - the accuracy difference with a 95 % interval and an exact sign test on the disagreements;
+- each version's calibration error and how many rows it could auto-accept at your precision target;
 - tokens per row;
 - a verdict: `promote`, `keep current`, `no clear difference` (with how much worse or better the new version could be) or `needs labels`.
 
 - **Re-asks are probes.** They are stored in the ledger with `purpose = 'probe'` and never become the current answer.
 - **Only disagreements need labels.** Where both versions give the same answer, both are right or both are wrong. Label every row where they disagree, and the accuracy difference is known on the whole sample.
-- **`promote` waits for full coverage.** It refuses while the new version hasn't answered every row the current one answers (`--force` overrides). Calibration is per version: calibrate again after promoting.
+- **`promote` waits for full coverage, then recalibrates.** It refuses while the new version hasn't answered every row the current one answers (`--force` overrides). If the old version was calibrated, the new one is fitted on the same labels and precision target in the same transaction, so `auto` keeps working.
+- **Automation, not just accuracy.** With 30+ random labels, the report fits both versions on them and shows each one's calibration error, guaranteed threshold and the share of compared rows it would mark `auto`.
 - **A shadow version judges new rows too.** It keeps up with new and changed rows until it is promoted or retired, and that costs tokens.
 
-On Kubernetes routing, dropping option descriptions saved 14 % of tokens. Labelling the 13 disagreements showed the descriptions were worth keeping. See [docs/phase1/versions.md](../docs/phase1/versions.md).
+On Kubernetes routing, dropping option descriptions saved 14 % of tokens. Labelling the 13 disagreements showed the descriptions were worth keeping, and with all labels they let 95 % of issues be auto-routed instead of 90 %. See [docs/phase1/versions.md](../docs/phase1/versions.md).

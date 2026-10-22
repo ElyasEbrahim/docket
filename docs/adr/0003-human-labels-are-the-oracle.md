@@ -15,6 +15,10 @@ Semantic query research (LOTUS, BARGAIN, SUPG-IT, Cortex AISQL cascades) treats 
 - Aggregates (`estimate_count`, `estimate_share`) use prediction-powered inference, importance-weighted when sampling was stratified, and refuse to answer when gold coverage in the requested scope is too thin.
 - Every guarantee is backed by a simulation coverage test in CI.
 - *Implemented (2026-10-20):* `docket.estimate()` uses PPI++ with a normal-approximation interval. Simulations and 500 real Kubernetes judgments show it holds once the labels contain at least 10 rows with **and** 10 without the answer; below that, estimates are flagged `reliable = false`. With no labelled example on one side, no interval is given. Labels record their sampling (`random` / `all` / `manual`), and only `random` feeds estimates by default. Stratified sampling, to make rare answers estimable with fewer labels, is the next step.
+- *Changed (2026-10-22, #16):* the guaranteed threshold is chosen on the **model's own score** (top probability, or P(yes)), not on cross-fitted calibrated scores.
+  - **Why the old rule was wrong.** The threshold was tested on one scale (each fold's temperature) and applied by the view on another (the final calibrator's). On real Kubernetes answers this left a threshold above every row's confidence (`auto` empty while `calibrate` reported 21.7 %). In principle it can also accept rows that were never tested. Whether a threshold existed also depended on the random fold assignment.
+  - **Why the new rule holds.** The raw score doesn't depend on the labels, so fixed-sequence testing holds exactly. The view applies the very threshold that was tested, and a CI simulation checks the guarantee where the view applies it. Coverage was unchanged on real data (95.0 % at 300 labels).
+  - **Labels used.** `calibrate` uses `random` and `all` labels. Hand-picked ones (`manual`, such as the disagreements `compare` exports) need `--include-manual`. A label naming an option the version lacks counts as wrong for it.
 
 ## Consequences
 

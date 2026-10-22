@@ -62,7 +62,7 @@ def _view(dsn):
 def test_install_is_idempotent_and_needs_no_superuser(env):
     with psycopg.connect(env["owner"]) as c:
         assert c.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user").fetchone()[0] is False
-    assert ledger.install(env["owner"]) == ["001", "002", "003"]
+    assert ledger.install(env["owner"]) == ["001", "002", "003", "004"]
     assert ledger.install(env["owner"]) == []
 
 
@@ -159,6 +159,12 @@ def test_labels_calibration_and_sql_python_parity(env):
     for answer, sql_value in pairs:
         assert sql_value == pytest.approx(calibration.calibrated(answer, spec, stored), rel=1e-9)
     assert view_conf > 0                                    # the over-confident 0.9s were pulled down
+    assert stored["threshold_on"] == "raw score"
+    with psycopg.connect(env["owner"]) as c:                # the view's `auto` is the Python twin's, row by row
+        rows = c.execute("SELECT v.auto, j.answer FROM docket.v_triage v JOIN docket.current cu ON cu.decision_id = "
+                         "(SELECT id FROM docket.decision WHERE name = 'triage') AND cu.row_key = v.key::text "
+                         "JOIN docket.judgment j ON j.id = cu.judgment_id").fetchall()
+    assert rows and all(a == calibration.auto(ans, spec, stored) for a, ans in rows)
 
 
 def test_status_view(env):
@@ -305,6 +311,12 @@ def test_compare_a_shadow_version_then_promote(env, capsys):
                                   "ON d.id = l.decision_id WHERE d.name = 'routes' GROUP BY 1").fetchall())
         assert sampling == {"random": 45, "manual": len(todo)}   # re-labelling a drawn row keeps it in the sample
         data = compare.fetch(c, "routes", 2)
+        tech = c.execute("SELECT count(*) FROM docket.label l JOIN docket.decision d ON d.id = l.decision_id "
+                         "WHERE d.name = 'routes' AND l.sampling = 'random' AND l.label = 'technical'").fetchone()[0]
+    # hand-picked labels (the disagreements) stay out of calibration unless asked for
+    assert ledger.calibrate(env["owner"], "routes", include_manual=True)["n_labels"] == 45 + len(todo)
+    cal1 = ledger.calibrate(env["owner"], "routes")
+    assert cal1["n_labels"] == 45 and cal1["sampling"] == ["random", "all"]
     r2 = compare.analyse(data["spec_old"], data["spec_new"], data["rows"], n_boot=300)
     assert r2["gain_from"] == "disagreements" and r2["disagreements_right"]["current"] == r2["disagreements"]
     assert r2["verdict"] == "keep current"
@@ -315,6 +327,13 @@ def test_compare_a_shadow_version_then_promote(env, capsys):
     assert (totals["judged"], totals["skipped_unchanged"]) == (60, 60)   # the sample is not asked twice
     p = ledger.promote(env["owner"], "routes", 2)
     assert p["previous"] == 1 and p["missing"] == 0 and p["comparison"]["verdict"] == "keep current"
+    # recalibrated in the same step, on the same labels: v2 can't answer `technical`, so those labels count as wrong
+    cal2 = p["calibration"]
+    assert cal2, p["calibration_missing"]
+    assert cal2["n_labels"] == 45 and cal2["labels_not_options"] == tech > 0
+    assert cal2["precision_target"] == cal1["precision_target"] and cal2["threshold"] is None
+    with psycopg.connect(env["owner"]) as c:                  # calibrated, nothing reaches 90 %: auto is false
+        assert c.execute("SELECT DISTINCT auto FROM docket.v_routes").fetchall() == [(False,)]
     after = _routes(env["owner"])
     assert {v[1] for v in after.values()} == {2} and "technical" not in {v[0] for v in after.values()}
     vs = {v["version"]: v for v in ledger.versions(env["owner"], "routes")}

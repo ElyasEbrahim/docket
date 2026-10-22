@@ -2,7 +2,10 @@
 
 choice: clamp exact zeros at half the smallest non-zero probability, then one temperature T.
 noul:   Platt scaling, sigmoid(a * logit(p) + b).
-The stored calibration also carries a threshold with a precision guarantee, chosen on out-of-fold scores.
+The stored calibration also carries a threshold with a precision guarantee. It is chosen on the model's own score
+(the top probability, or the yes-probability), which doesn't depend on the labels, so fixed-sequence testing holds
+exactly and the view applies the very threshold that was tested (`threshold_on: "raw score"`). Calibrations stored
+before 2026-10-22 chose it on cross-fitted calibrated scores and keep being applied that way.
 """
 import math
 from datetime import datetime, timezone
@@ -10,7 +13,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from . import metrics as M
-from .spec import choice_vector, option_display, option_names
+from .spec import choice_vector, option_display, option_names, read_answer
 
 
 def calibrated(answer, spec, cal):
@@ -31,8 +34,28 @@ def calibrated(answer, spec, cal):
     return max(q) ** (1 / t) / sum(x ** (1 / t) for x in q)
 
 
+def raw_score(answer, spec):
+    """The model's own score, as the worker stores it in judgment.score: top probability (choice) or P(yes) (noul)."""
+    return read_answer(spec, answer)[1]
+
+
+def auto(answer, spec, cal):
+    """Python twin of the view's `auto` column."""
+    if answer is None or not cal:
+        return None
+    if cal.get("threshold") is None:
+        return False
+    if cal.get("threshold_on") == "raw score":
+        return raw_score(answer, spec) >= cal["threshold"]
+    return calibrated(answer, spec, cal) >= cal["threshold"]
+
+
 def fit(spec, answers, labels, precision_target=0.9, alpha=0.05):
-    """answers: raw backend answers; labels: option names (choice) or booleans (noul), same order."""
+    """answers: raw backend answers; labels: option names (choice) or booleans (noul), same order.
+
+    A choice label that is not one of this spec's options (an option another version has) can't be answered
+    correctly: it is left out of the temperature fit but counts as wrong in the error and the threshold.
+    """
     n = len(labels)
     if n < 30:
         raise ValueError(f"only {n} labeled rows with answers; need at least 30 (100–200 recommended)")
@@ -41,18 +64,24 @@ def fit(spec, answers, labels, precision_target=0.9, alpha=0.05):
     if spec["kind"] == "choice":
         names, display = option_names(spec), option_display(spec)
         P = np.array([choice_vector(a, display) for a in answers])
-        y = np.array([names.index(l) for l in labels])
+        known = np.array([l in names for l in labels])
+        if known.sum() < 10:                                    # enough to fit one temperature
+            raise ValueError(f"only {int(known.sum())} labels name an option of this version; need at least 10")
+        y = np.array([names.index(l) if k else -1 for l, k in zip(labels, known)])
         floor = float(P[P > 0].min() / 2) if (P == 0).any() else 0.0
         Pf = np.maximum(P, floor)
         Pf = Pf / Pf.sum(axis=1, keepdims=True)
-        T = M.temperature_fit(Pf, y)
-        P_cv, _ = M.crossfit_temperature(Pf, y)
+        T = M.temperature_fit(Pf[known], y[known])
+        P_cv = np.empty_like(Pf)
+        P_cv[known], _ = M.crossfit_temperature(Pf[known], y[known])
+        if not known.all():
+            P_cv[~known] = M.temperature_apply(Pf[~known], T)
         conf_cv, correct_cv = P_cv.max(axis=1), (P_cv.argmax(axis=1) == y).astype(float)
         raw_conf, raw_correct = P.max(axis=1), (P.argmax(axis=1) == y).astype(float)
         cal = {"method": "temperature", "temperature": T, "floor": floor,
                "ece_raw": M.ece(raw_conf, raw_correct, 15), "ece_calibrated": M.ece(conf_cv, correct_cv, 15),
-               "accuracy": float(raw_correct.mean())}
-        score, ok = conf_cv, correct_cv
+               "accuracy": float(raw_correct.mean()), "labels_not_options": int((~known).sum())}
+        ok = raw_correct
     else:
         p = np.array([float(a["noul"]) for a in answers])
         y = np.array([bool(l) for l in labels], float)
@@ -60,10 +89,11 @@ def fit(spec, answers, labels, precision_target=0.9, alpha=0.05):
         p_cv = M.crossfit_binary(p, y, "platt")
         cal = {"method": "platt", "a": float(a), "b": float(b),
                "ece_raw": M.ece(p, y, 15), "ece_calibrated": M.ece(p_cv, y, 15), "prevalence": float(y.mean())}
-        score, ok = p_cv, y
+        ok = y
+    score = np.array([raw_score(a, spec) for a in answers])
     th = M.precision_threshold(score, ok, precision_target, alpha)
     chosen = th["chosen"]
-    cal.update(common, threshold=chosen["threshold"] if chosen else None,
+    cal.update(common, threshold=chosen["threshold"] if chosen else None, threshold_on="raw score",
                coverage=chosen["coverage"] if chosen else 0.0,
                observed_precision=chosen["precision"] if chosen else None)
     return cal

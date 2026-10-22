@@ -60,7 +60,8 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 
 - [ ] Adapters: OpenAI Decisions API, `/v1/systemone`-compatible (stuntd, laya-server), Jev via OpenRouter
 - [x] Shadow versions, `revise`, `compare` (changes against the re-ask noise baseline, accuracy from labels on the disagreements), gated `promote`, `retire` (#15)
-- [ ] Calibration shift in `compare`; carry calibration over to a promoted version
+- [x] Calibration in `compare` (error, guaranteed threshold, auto-accept share per version); `promote` recalibrates; thresholds on the model's own score (#16)
+- [ ] `pgdocket check`: choose its threshold on the raw score too, like `calibrate` (its reports still use cross-fitted scores)
 - [ ] Backend comparison report (accuracy, ECE, cost, latency) on the same gold set
 - [ ] Option-order debiasing for `choice` (on only if Phase 0 showed it helps)
 - [ ] Instruction-injection flag decision and consistency re-checks → review queue

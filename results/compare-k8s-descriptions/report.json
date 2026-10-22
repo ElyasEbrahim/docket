@@ -92,10 +92,29 @@
     -0.04,
     0.0
   ],
+  "calibration": {
+    "current": {
+      "n_labels": 80,
+      "precision_target": 0.9,
+      "ece_raw": 0.09519065656565663,
+      "ece_calibrated": 0.029877354673902772,
+      "threshold": 0.968,
+      "auto_share": 0.7833333333333333
+    },
+    "new": {
+      "n_labels": 80,
+      "precision_target": 0.9,
+      "ece_raw": 0.0741249999999999,
+      "ece_calibrated": 0.05230952202986442,
+      "threshold": 0.948,
+      "auto_share": 0.7466666666666667
+    }
+  },
   "verdict": "no clear difference",
   "reasons": [
     "The new version changes 4.3 % of answers, against 1.0 % when the current one is simply asked again: 3.3 % more [1.0 %, 6.0 %] are due to the change.",
     "The versions disagree on 13 of 300 rows, all labelled: the current one was right on 8, the new one on 2, neither on 3 (exact sign test p = 0.11). Accuracy difference: -2.0 pp [-4.0 pp, +0.0 pp]. No difference is detectable: the new version is between 4.0 pp less and 0.0 pp more accurate.",
+    "Auto-accept at \u2265 90 % precision (95 % confidence), each version calibrated on the same random labels: current 78.3 % of compared rows, new 74.7 %.",
     "Tokens per row: 1024 \u2192 884 (-14 %). Promote for the saving only if losing up to 4.0 pp of accuracy is acceptable."
   ]
 }

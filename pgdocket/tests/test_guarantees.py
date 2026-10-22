@@ -57,3 +57,31 @@ def test_precision_threshold_starts_where_the_target_is_provable():
     res = precision_threshold(score, correct, target=0.9)
     assert res["min_accept"] >= 58
     assert res["chosen"] and res["chosen"]["coverage"] >= 0.2
+
+
+def test_the_threshold_holds_where_the_view_applies_it():
+    """End to end: fit on a random sample of labels, mark `auto` on every row as the view does, and measure the true
+    precision of the auto rows."""
+    from pgdocket import calibration
+    opts = ["a", "b", "c"]
+    spec = {"kind": "choice", "question": "q", "options": [{"name": o} for o in opts]}
+    rng = np.random.default_rng(12)
+    trials, misses, found = 200, 0, 0
+    for _ in range(trials):
+        s = np.round(rng.uniform(0.34, 1.0, 2000), 2)                   # Jev-like 0.01 grid, with exact 1.0s
+        pick = rng.integers(0, 3, 2000)
+        right = rng.random(2000) < 0.25 + 0.75 * s                      # precision crosses 85 % mid-range
+        truth = np.where(right, pick, (pick + rng.integers(1, 3, 2000)) % 3)
+        answers = [{"choice": opts[p], "probabilities": {o: (x if i == p else (1 - x) / 2) for i, o in enumerate(opts)}}
+                   for p, x in zip(pick, s)]
+        lab = rng.choice(2000, 200, replace=False)
+        cal = calibration.fit(spec, [answers[i] for i in lab], [opts[truth[i]] for i in lab], precision_target=0.85)
+        # the view accepts exactly the labelled rows the threshold was tested on (it once applied another scale)
+        assert np.mean([calibration.auto(answers[i], spec, cal) for i in lab]) == pytest.approx(cal["coverage"])
+        if cal["threshold"] is None:
+            continue
+        found += 1
+        auto = np.array([calibration.auto(a, spec, cal) for a in answers])
+        misses += (pick[auto] == truth[auto]).mean() < 0.85
+    assert found > trials / 2
+    assert misses / found <= 0.07                                       # stated: at most 5 %

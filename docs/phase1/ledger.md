@@ -83,10 +83,12 @@ The view picked up the new calibration immediately, without re-judging anything.
 
 How to read this: 89.1 % is just under the 90 % target, but well inside the noise for 92 rows. If the true precision were exactly 90 %, a result this low or lower would occur 44 % of the time. So the held-out check is **consistent with the guarantee but too small to confirm it**. A confirmation needs a few hundred held-out rows. The threshold clearly does its job of routing the hard cases to a person: the model is right on only 62.5 % of the issues it held back.
 
+*Update 2026-10-22 (#16):* the threshold is now chosen on the model's own score, so the view applies exactly what was tested (see the last limit below). Re-run on the same 200 labels and the same stored answers, it routed **94 of the 100** held-out issues at **89.4 %** precision (84 of 94; exact 95 % interval 81.3–94.8 %). The model was right on 3 of the 6 it held back. The conclusion is the same: consistent with the guarantee, too small to confirm it.
+
 ## Known limits
 
 - Reads are eventually consistent: a new row is `pending` until the worker has judged it.
 - The ledger grows with every re-judgment. Archiving or partitioning old versions is future work.
 - Shadow versions (`docket.revise` / `docket.promote`) exist in SQL but have no CLI or diff report yet (Phase 3). *Update 2026-10-22: built in #15; see [versions.md](versions.md).*
-- The threshold is chosen on out-of-fold scores, but the view applies it to the final calibrator's scores. These are close, not identical.
+- The threshold is chosen on out-of-fold scores, but the view applies it to the final calibrator's scores. These are close, not identical. *Fixed 2026-10-22 (#16): on real answers the gap could leave `auto` empty, so thresholds are now chosen and applied on the model's own score ([ADR 0003](../adr/0003-human-labels-are-the-oracle.md)).*
 - Not yet tested on Supabase, Neon or RDS themselves. The non-superuser CI setup mirrors their permission model, but not their exact configuration.

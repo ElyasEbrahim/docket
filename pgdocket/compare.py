@@ -10,6 +10,8 @@ re-asked as a probe (noise baseline), and the shadow version's answer (new).
   the rows where they disagree decide which is more accurate. Once every disagreement in the sample has a label
   (`--export-disagreements` lists them), the difference is known on every sampled row. Until then it is measured
   on random-sample labels only.
+- Calibration: both versions fitted on the same random labels; each one's calibration error, guaranteed threshold
+  and the share of compared rows it could auto-accept at that precision.
 - A verdict: promote / keep current / no clear difference / needs labels.
 """
 import csv
@@ -22,6 +24,7 @@ from math import comb
 import numpy as np
 from psycopg import sql
 
+from . import calibration
 from . import metrics as M
 from .spec import option_names, read_answer
 
@@ -36,7 +39,7 @@ def decision_value(spec, answer):
     return value if spec["kind"] == "choice" else ("yes" if score >= 0.5 else "no")
 
 
-def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0):
+def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0, precision_target=0.9):
     """rows: dicts with old, probe, new (raw answers), label (or None) and sampling ('random', 'manual', 'all').
     Rows missing an answer are skipped."""
     rows = [r for r in rows if r["old"] is not None and r["probe"] is not None and r["new"] is not None]
@@ -87,12 +90,30 @@ def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0):
     if "gain_from" in out:
         out["accuracy_gain"] = float(gain.mean())
         out["accuracy_gain_ci"] = M.bootstrap_ci(np.mean, [gain], n_boot=n_boot, seed=seed)
+    if out["labels"] >= MIN_LABELS:
+        out["calibration"] = {"current": _fit(spec_old, [r["old"] for r in rows], label, is_random, precision_target),
+                              "new": _fit(spec_new, [r["new"] for r in rows], label, is_random, precision_target)}
     if spec_new["kind"] == "choice" and has_label.any():
         unknown = sum(1 for l in label if l is not None and l not in option_names(spec_new))
         if unknown:
             out["labels_not_options_of_new"] = unknown
     out.update(_verdict(out))
     return out
+
+
+def _fit(spec, answers, labels, use, precision_target):
+    """Fit a version's calibrator on the random labels, as `calibrate` would; then how many compared rows its view
+    would mark `auto`. None when the labels can't support a fit."""
+    idx = [i for i in range(len(answers)) if use[i]]
+    y = [labels[i] if spec["kind"] == "choice" else labels[i] == "yes" for i in idx]
+    try:
+        cal = calibration.fit(spec, [answers[i] for i in idx], y, precision_target)
+    except ValueError:
+        return None
+    t = cal["threshold"]
+    auto = None if t is None else float(np.mean([calibration.auto(a, spec, cal) for a in answers]))
+    return {"n_labels": cal["n_labels"], "precision_target": precision_target, "ece_raw": cal["ece_raw"],
+            "ece_calibrated": cal["ece_calibrated"], "threshold": t, "auto_share": auto}
 
 
 def sign_test(a, b):
@@ -149,6 +170,12 @@ def _verdict(r):
         todo = r["disagreements"] - r["disagreements_labelled"]
         reasons.append(f"To narrow this, label the {todo} rows where the versions disagree (`--export-disagreements`): "
                        f"that measures the difference on all {r['n']} rows.")
+    c = r.get("calibration") or {}
+    if c.get("current") and c.get("new"):
+        share = lambda x: "none (no threshold reaches it)" if x["auto_share"] is None else pct(x["auto_share"])
+        reasons.append(f"Auto-accept at ≥ {100 * c['current']['precision_target']:.0f} % precision (95 % confidence), each "
+                       f"version calibrated on the same random labels: current {share(c['current'])} of compared rows, "
+                       f"new {share(c['new'])}.")
     if "tokens_per_row_new" in r:
         to, tn = r["tokens_per_row_old"], r["tokens_per_row_new"]
         cost = f"Tokens per row: {to:.0f} → {tn:.0f} ({100 * (tn / to - 1):+.0f} %)."
@@ -161,8 +188,9 @@ def _verdict(r):
 
 # ---------------------------------------------------------------- database
 def fetch(conn, name, version):
-    d = conn.execute("SELECT id, active_version, source, key_column, text_columns FROM docket.decision WHERE name = %s",
-                     (name,)).fetchone()
+    d = conn.execute("SELECT d.id, d.active_version, d.source, d.key_column, d.text_columns, v.calibration "
+                     "FROM docket.decision d JOIN docket.version v ON v.decision_id = d.id AND v.version = d.active_version "
+                     "WHERE d.name = %s", (name,)).fetchone()
     if not d:
         raise SystemExit(f"no decision named {name!r}")
     did, active = d[0], d[1]
@@ -187,7 +215,8 @@ def fetch(conn, name, version):
         "((version = %s AND purpose = 'live') OR (version = %s AND purpose = 'probe'))", (did, version, active)).fetchone()[0]
     cols = ("row_key", "old", "probe", "new", "label", "sampling", "tokens_old", "tokens_new")
     return {"decision_id": did, "active": active, "version": version, "spec_old": specs[active], "spec_new": specs[version],
-            "source": d[2], "key": d[3], "text": d[4], "rows": [dict(zip(cols, r)) for r in rows], "pending": pending}
+            "source": d[2], "key": d[3], "text": d[4], "calibration": d[5], "rows": [dict(zip(cols, r)) for r in rows],
+            "pending": pending}
 
 
 def export_disagreements(conn, data, path):
@@ -246,6 +275,19 @@ def render(name, data, r):
         L.append(f"| **difference, 95 % interval** ({r['gain_from']}) | | | {pp(r['accuracy_gain'])} "
                  f"[{pp(r['accuracy_gain_ci'][0])}, {pp(r['accuracy_gain_ci'][1])}] |")
     L.append("")
+    c = r.get("calibration") or {}
+    if c.get("current") or c.get("new"):
+        cell = lambda x, f: "–" if not x else f(x)
+        thr = lambda x: "none" if x["threshold"] is None else f"{x['threshold']:.3f}"
+        auto = lambda x: "–" if x["auto_share"] is None else pct(x["auto_share"])
+        tgt = 100 * (c["current"] or c["new"])["precision_target"]
+        L += [f"## Calibration on the same {r['labels']} random labels", "", "| | current | new |", "| --- | ---: | ---: |",
+              "| calibration error, raw → calibrated | " + " | ".join(
+                  cell(x, lambda x: f"{x['ece_raw']:.3f} → {x['ece_calibrated']:.3f}") for x in (c["current"], c["new"])) + " |",
+              f"| threshold for ≥ {tgt:.0f} % precision (95 % confidence) | "
+              + " | ".join(cell(x, thr) for x in (c["current"], c["new"])) + " |",
+              "| compared rows it would auto-accept | " + " | ".join(cell(x, auto) for x in (c["current"], c["new"])) + " |",
+              ""]
     keys = sorted(set(r["counts_old"]) | set(r["counts_new"]), key=lambda k: -r["counts_old"].get(k, 0))
     L += ["## Answer counts in the sample", "", "| answer | current | new |", "| --- | ---: | ---: |"]
     L += [f"| {k} | {r['counts_old'].get(k, 0)} | {r['counts_new'].get(k, 0)} |" for k in keys]
