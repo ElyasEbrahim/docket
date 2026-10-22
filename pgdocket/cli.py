@@ -136,7 +136,10 @@ def main(argv=None):
     cp.add_argument("--sample", type=int, default=0,
                     help="queue this many rows (labelled ones first) for both versions; 0: report on what is judged")
     cp.add_argument("--seed", default="1")
-    cp.add_argument("--run", action="store_true", help="run the worker until the queue is empty, then report")
+    cp.add_argument("--run", action="store_true", help="run the worker until the queue is empty, then report "
+                                                         "(when no worker is running)")
+    cp.add_argument("--wait", type=float, default=0, metavar="SECONDS",
+                    help="wait up to this long for a running worker to finish the comparison, then report")
     cp.add_argument("--max-usd", type=float, default=1.0, help="with --run: stop after spending this much")
     cp.add_argument("--out", help="also write report.md and report.json to this folder")
     cp.add_argument("--precision-target", type=float,
@@ -254,8 +257,9 @@ def _ledger_command(a):
         ver, spec = ledger.revise(a.dsn, a.name, a.question, a.options, a.options_file, a.model, a.backend, a.batch_size,
                                   a.backfill)
         print(f"{a.name} v{ver} added as a shadow version; docket.v_{a.name} still shows the active one")
-        print(f"next: pgdocket compare {a.name} {ver} --sample 200 --run" if not a.backfill
-              else f"every row is queued for v{ver}; when the worker is done: pgdocket compare {a.name} {ver} --sample 200")
+        print(f"next: pgdocket compare {a.name} {ver} --sample 200 --wait 600   (or --run if no worker is running)"
+              if not a.backfill else
+              f"every row is queued for v{ver}; when the worker is done: pgdocket compare {a.name} {ver} --sample 200")
     elif a.cmd == "compare":
         _compare(a, ledger)
     elif a.cmd == "backfill":
@@ -306,6 +310,8 @@ def _compare(a, ledger):
         from .worker import Worker
         totals = Worker(a.dsn, api_key=os.environ.get("TYPESAFE_API_KEY") or None, max_usd=a.max_usd).run(once=True)
         print(f"worker: {totals['judged']} judged, {totals['probed']} re-asked, ${totals['usd']:.4f}")
+    if a.wait:
+        _wait_for_comparison(a, ledger, compare)
     with ledger.connect(a.dsn) as conn:
         data = compare.fetch(conn, a.name, a.version)
         target = a.precision_target or (data["calibration"] or {}).get("precision_target", 0.9)
@@ -323,6 +329,18 @@ def _compare(a, ledger):
     if a.out and md:
         print(f"report: {compare.write(a.out, md, result)}")
     print(md if md else "\n".join(result["reasons"]))
+
+
+def _wait_for_comparison(a, ledger, compare):
+    import time
+    deadline = time.monotonic() + a.wait
+    with ledger.connect(a.dsn, autocommit=True) as conn:
+        d = conn.execute("SELECT id, active_version FROM docket.decision WHERE name = %s", (a.name,)).fetchone()
+        if not d:
+            sys.exit(f"no decision named {a.name!r}")
+        while (left := compare.pending_count(conn, d[0], d[1], a.version)) and time.monotonic() < deadline:
+            time.sleep(1)
+    print(f"waited: {left} comparison judgments still queued" if left else "waited: comparison judged")
 
 
 if __name__ == "__main__":

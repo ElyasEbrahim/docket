@@ -1,0 +1,6 @@
+[
+  {"name": "billing", "description": "invoices, charges, refunds, payment methods, taxes"},
+  {"name": "technical", "description": "bugs, errors, outages, the API and integrations"},
+  {"name": "account", "description": "logins, users and admins, workspace settings, deleting data"},
+  {"name": "sales", "description": "quotes, plans and pricing, demos, contracts"}
+]

@@ -4,6 +4,15 @@ Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repo
 
 ## 2026-10-22
 
+**Release 0.1.0a2.** Everything below, from #15 and #16, plus:
+
+### Added (#17)
+- `compare --wait SECONDS`: queue the comparison and wait for the worker that is already running to judge it (the normal setup); `--run` remains for when no worker runs. `revise` now suggests it.
+- The quickstart has a step that tries a change before switching it on: `revise` with team descriptions (`teams.json`), `compare --wait`, then `promote`, which recalibrates. Re-run end to end on Jev, with every sample output refreshed (≈ $0.004).
+
+### Changed (#17)
+- `compare` calibrates both versions on the labels `calibrate` would use (random and whole-column), so it shows what `promote` would do.
+
 ### Fixed (calibration across versions, #16)
 - **The guaranteed threshold is now chosen and applied on the model's own score.**
   - *Before:* `calibrate` chose it on cross-fitted calibrated scores, but the view applied it to the final calibrator's scores, a different scale. On real Kubernetes answers this left a threshold above every row (`auto` empty while 21.7 % coverage was reported). It could, in principle, also accept rows the guarantee never tested. Whether a threshold existed depended on the random fold assignment.

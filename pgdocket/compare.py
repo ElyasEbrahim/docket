@@ -10,8 +10,9 @@ re-asked as a probe (noise baseline), and the shadow version's answer (new).
   the rows where they disagree decide which is more accurate. Once every disagreement in the sample has a label
   (`--export-disagreements` lists them), the difference is known on every sampled row. Until then it is measured
   on random-sample labels only.
-- Calibration: both versions fitted on the same random labels; each one's calibration error, guaranteed threshold
-  and the share of compared rows it could auto-accept at that precision.
+- Calibration: both versions fitted on the labels `calibrate` would use (random and whole-column), so it shows what
+  `promote` would do; each one's calibration error, guaranteed threshold and the share of compared rows it would
+  mark `auto`.
 - A verdict: promote / keep current / no clear difference / needs labels.
 """
 import csv
@@ -90,9 +91,11 @@ def analyse(spec_old, spec_new, rows, n_boot=2000, seed=0, precision_target=0.9)
     if "gain_from" in out:
         out["accuracy_gain"] = float(gain.mean())
         out["accuracy_gain_ci"] = M.bootstrap_ci(np.mean, [gain], n_boot=n_boot, seed=seed)
-    if out["labels"] >= MIN_LABELS:
-        out["calibration"] = {"current": _fit(spec_old, [r["old"] for r in rows], label, is_random, precision_target),
-                              "new": _fit(spec_new, [r["new"] for r in rows], label, is_random, precision_target)}
+    for_cal = has_label & np.array([r.get("sampling", "random") in ("random", "all") for r in rows])   # as `calibrate`
+    out["calibration_labels"] = int(for_cal.sum())
+    if out["calibration_labels"] >= MIN_LABELS:
+        out["calibration"] = {"current": _fit(spec_old, [r["old"] for r in rows], label, for_cal, precision_target),
+                              "new": _fit(spec_new, [r["new"] for r in rows], label, for_cal, precision_target)}
     if spec_new["kind"] == "choice" and has_label.any():
         unknown = sum(1 for l in label if l is not None and l not in option_names(spec_new))
         if unknown:
@@ -174,7 +177,8 @@ def _verdict(r):
     if c.get("current") and c.get("new"):
         share = lambda x: "none (no threshold reaches it)" if x["auto_share"] is None else pct(x["auto_share"])
         reasons.append(f"Auto-accept at ≥ {100 * c['current']['precision_target']:.0f} % precision (95 % confidence), each "
-                       f"version calibrated on the same random labels: current {share(c['current'])} of compared rows, "
+                       f"version calibrated on the same {r['calibration_labels']} labels as `calibrate` would use: current "
+                       f"{share(c['current'])} of compared rows, "
                        f"new {share(c['new'])}.")
     if "tokens_per_row_new" in r:
         to, tn = r["tokens_per_row_old"], r["tokens_per_row_new"]
@@ -210,13 +214,19 @@ def fetch(conn, name, version):
         LEFT JOIN docket.judgment jn ON jn.id = cn.judgment_id
         LEFT JOIN docket.label l ON l.decision_id = %(d)s AND l.row_key = p.row_key
         ORDER BY p.row_key""", {"d": did, "a": active, "v": version}).fetchall()
-    pending = conn.execute(
-        "SELECT count(*) FROM docket.queue WHERE decision_id = %s AND attempts < 5 AND "
-        "((version = %s AND purpose = 'live') OR (version = %s AND purpose = 'probe'))", (did, version, active)).fetchone()[0]
+    pending = pending_count(conn, did, active, version)
     cols = ("row_key", "old", "probe", "new", "label", "sampling", "tokens_old", "tokens_new")
     return {"decision_id": did, "active": active, "version": version, "spec_old": specs[active], "spec_new": specs[version],
             "source": d[2], "key": d[3], "text": d[4], "calibration": d[5], "rows": [dict(zip(cols, r)) for r in rows],
             "pending": pending}
+
+
+def pending_count(conn, decision_id, active, version):
+    """Comparison judgments still queued (not dead-lettered): the shadow version's, and the active version's re-asks."""
+    return conn.execute(
+        "SELECT count(*) FROM docket.queue WHERE decision_id = %s AND attempts < 5 AND "
+        "((version = %s AND purpose = 'live') OR (version = %s AND purpose = 'probe'))",
+        (decision_id, version, active)).fetchone()[0]
 
 
 def export_disagreements(conn, data, path):
@@ -281,7 +291,7 @@ def render(name, data, r):
         thr = lambda x: "none" if x["threshold"] is None else f"{x['threshold']:.3f}"
         auto = lambda x: "–" if x["auto_share"] is None else pct(x["auto_share"])
         tgt = 100 * (c["current"] or c["new"])["precision_target"]
-        L += [f"## Calibration on the same {r['labels']} random labels", "", "| | current | new |", "| --- | ---: | ---: |",
+        L += [f"## Calibration on the same {r['calibration_labels']} labels (as `calibrate` and `promote` would use them)", "", "| | current | new |", "| --- | ---: | ---: |",
               "| calibration error, raw → calibrated | " + " | ".join(
                   cell(x, lambda x: f"{x['ece_raw']:.3f} → {x['ece_calibrated']:.3f}") for x in (c["current"], c["new"])) + " |",
               f"| threshold for ≥ {tgt:.0f} % precision (95 % confidence) | "

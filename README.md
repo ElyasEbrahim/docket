@@ -44,7 +44,7 @@ pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # Python 3.10+; 
 pgdocket --version
 ```
 
-Or as a container: `docker build -t pgdocket .` from this repository. **New here?** The [5-minute quickstart](examples/quickstart/README.md) runs Postgres, the worker and 60 synthetic support tickets with Docker. It costs about $0.001 in API calls.
+Or as a container: `docker build -t pgdocket .` from this repository. **New here?** The [5-minute quickstart](examples/quickstart/README.md) runs Postgres, the worker and 60 synthetic support tickets with Docker, through to calibration and trying a change before switching it on. It costs well under $0.01 in API calls.
 
 ## Try it on your own data: `pgdocket check`
 

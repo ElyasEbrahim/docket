@@ -6,3 +6,8 @@ __pycache__/
 .env
 *.env
 data/raw/
+
+# Python packaging output
+dist/
+build/
+*.egg-info/

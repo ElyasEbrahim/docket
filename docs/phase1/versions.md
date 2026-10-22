@@ -12,7 +12,7 @@ Changing a decision (its question, its options, the model) changes some answers.
 
 ```bash
 pgdocket revise triage --options-file teams-v2.json      # v2 as a shadow version: nothing judged, view unchanged
-pgdocket compare triage 2 --sample 300 --run --out results/compare-v2
+pgdocket compare triage 2 --sample 300 --wait 600 --out results/compare-v2   # or --run if no worker is running
 pgdocket compare triage 2 --export-disagreements todo.csv    # the rows where they disagree, still unlabelled
 pgdocket label triage --csv todo.csv                     # after filling in the label column
 pgdocket compare triage 2                                # report again from stored answers (no API calls)

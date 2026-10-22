@@ -366,3 +366,19 @@ def test_a_shadow_version_judges_new_rows_until_retired(env):
 def _routes(dsn):
     with psycopg.connect(dsn) as c:
         return {r[0]: r[1:] for r in c.execute("SELECT key, answer, version FROM docket.v_routes ORDER BY key")}
+
+
+def test_compare_waits_for_a_running_worker(env, capsys):
+    """`compare --sample N --wait S`: queue the comparison, let the worker that is already running judge it, report."""
+    import threading
+    import time
+    from pgdocket import cli
+    ver, _ = ledger.revise(env["owner"], "routes", question="Which team should own this ticket?")
+    worker = threading.Thread(target=lambda: (time.sleep(2), Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)))
+    worker.start()
+    cli.main(["compare", "--dsn", env["owner"], "routes", str(ver), "--sample", "20", "--wait", "60"])
+    worker.join()
+    out = capsys.readouterr().out
+    assert "20 rows queued" in out and "waited: comparison judged" in out and "· 20 rows compared" in out
+    assert "not done yet" not in out
+    ledger.retire(env["owner"], "routes", ver)

@@ -153,7 +153,8 @@ Change a decision safely: add a shadow version, judge a sample under both versio
 
 ```bash
 pgdocket revise triage --options-file teams-v2.json      # shadow version v2; the view keeps showing v1
-pgdocket compare triage 2 --sample 300 --run             # v2 judges the sample; v1 is asked again (noise baseline)
+pgdocket compare triage 2 --sample 300 --wait 600       # v2 judges the sample; v1 is asked again (noise baseline)
+                                                         # (--wait: the running worker does it; --run: no worker running)
 pgdocket compare triage 2 --export-disagreements todo.csv
 pgdocket label triage --csv todo.csv                     # label only the rows where they disagree
 pgdocket compare triage 2                                # re-report from stored answers

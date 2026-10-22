@@ -46,7 +46,7 @@ pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # 需要 Python 
 pgdocket --version
 ```
 
-也可以使用容器：在本仓库中运行 `docker build -t pgdocket .`。**第一次使用？** [5 分钟快速上手](examples/quickstart/README.md)（英文）会用 Docker 启动 Postgres、worker 和 60 条合成的客服工单，API 费用约 0.001 美元。
+也可以使用容器：在本仓库中运行 `docker build -t pgdocket .`。**第一次使用？** [5 分钟快速上手](examples/quickstart/README.md)（英文）会用 Docker 启动 Postgres、worker 和 60 条合成的客服工单，一直演示到校准，以及在切换之前先试用一项修改。API 费用远低于 0.01 美元。
 
 ## 在你自己的数据上试用：`pgdocket check`
 

@@ -140,7 +140,7 @@ def test_calibration_compares_how_many_rows_each_version_could_auto_accept():
     assert new["auto_share"] > 0.7 and new["ece_calibrated"] < 0.1
     assert any("Auto-accept at ≥ 90 % precision" in x for x in r["reasons"])
     md = compare.render("t", {"active": 1, "version": 2, "spec_old": SPEC, "spec_new": SPEC}, r)
-    assert "## Calibration on the same 160 random labels" in md
+    assert "## Calibration on the same 160 labels" in md
 
 
 def test_no_calibration_comparison_with_too_few_random_labels():
