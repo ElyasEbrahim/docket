@@ -10,6 +10,7 @@ class FakeSystemOne(BaseHTTPRequestHandler):
     ports = []
     fail_first = False
     fail_rows_containing = None          # rows whose JSON contains this string get HTTP 400
+    answer_override = {}                 # want -> what the model answers instead (the model "changed")
 
     def log_message(self, *a):
         pass
@@ -29,6 +30,7 @@ class FakeSystemOne(BaseHTTPRequestHandler):
         for qid, q in req["questions"].items():
             row = rows[int(qid[1:])]
             want = row.get("want") or row.get("body", "")[:1] or "a"
+            want = cls.answer_override.get(want, want)
             if q["type"] == "choice":
                 opts = list(q["criteria"])
                 pick = next((o for o in opts if o.startswith(want)), opts[0])
@@ -53,6 +55,7 @@ def serve():
     """Start a fake server on a free port; returns (url, shutdown)."""
     FakeSystemOne.requests, FakeSystemOne.ports = [], []
     FakeSystemOne.fail_first, FakeSystemOne.fail_rows_containing = False, None
+    FakeSystemOne.answer_override = {}
     srv = ThreadingHTTPServer(("127.0.0.1", 0), FakeSystemOne)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return f"http://127.0.0.1:{srv.server_address[1]}/v1/systemone", srv.shutdown

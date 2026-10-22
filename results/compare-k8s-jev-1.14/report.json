@@ -1,0 +1,97 @@
+{
+  "n": 300,
+  "changed": 0.01,
+  "noise": 0.01,
+  "excess": 0.0,
+  "excess_ci": [
+    -0.01,
+    0.01
+  ],
+  "transitions": [
+    {
+      "old": "testing",
+      "new": "scheduling",
+      "rows": 1
+    },
+    {
+      "old": "apps",
+      "new": "api-machinery",
+      "rows": 1
+    },
+    {
+      "old": "testing",
+      "new": "node",
+      "rows": 1
+    }
+  ],
+  "counts_old": {
+    "node": 102,
+    "api-machinery": 74,
+    "scheduling": 58,
+    "network": 14,
+    "apps": 11,
+    "storage": 11,
+    "auth": 10,
+    "testing": 10,
+    "cli": 7,
+    "instrumentation": 3
+  },
+  "counts_new": {
+    "node": 103,
+    "api-machinery": 75,
+    "scheduling": 59,
+    "network": 14,
+    "storage": 11,
+    "auth": 10,
+    "apps": 10,
+    "testing": 8,
+    "cli": 7,
+    "instrumentation": 3
+  },
+  "tokens_per_row_old": 1023.7133333333334,
+  "tokens_per_row_new": 1024.0,
+  "labels": 80,
+  "disagreements": 3,
+  "disagreements_labelled": 3,
+  "disagreements_right": {
+    "current": 1,
+    "new": 2,
+    "neither": 0
+  },
+  "sign_test_p": 1.0,
+  "accuracy_old": 0.9125,
+  "accuracy_new": 0.925,
+  "gain_from": "disagreements",
+  "accuracy_gain": 0.0033333333333333335,
+  "accuracy_gain_ci": [
+    -0.006666666666666667,
+    0.016666666666666666
+  ],
+  "calibration_labels": 80,
+  "calibration": {
+    "current": {
+      "n_labels": 80,
+      "precision_target": 0.9,
+      "ece_raw": 0.09519065656565663,
+      "ece_calibrated": 0.029877354673902772,
+      "threshold": 0.968,
+      "auto_share": 0.7833333333333333
+    },
+    "new": {
+      "n_labels": 80,
+      "precision_target": 0.9,
+      "ece_raw": 0.06700000000000002,
+      "ece_calibrated": 0.050119199256852334,
+      "threshold": null,
+      "auto_share": null
+    }
+  },
+  "verdict": "no clear difference",
+  "reasons": [
+    "The new version changes 1.0 % of answers, against 1.0 % when the current one is asked again: the difference [-1.0 %, 1.0 %] is within run-to-run noise.",
+    "The versions disagree on 3 of 300 rows, all labelled: the current one was right on 1, the new one on 2, neither on 0 (exact sign test p = 1.00). Accuracy difference: +0.3 pp [-0.7 pp, +1.7 pp]. No difference is detectable: the new version is between 0.7 pp less and 1.7 pp more accurate.",
+    "Auto-accept at \u2265 90 % precision (95 % confidence), each version calibrated on the same 80 labels as `calibrate` would use: current 78.3 % of compared rows, new none (no threshold reaches it).",
+    "With 80 labels, whether a guarantee can be certified at all is partly chance: on Kubernetes routing, 80 random labels certified 90 % in only 54\u201366 % of draws. Label more rows (150\u2013200) before reading this as a difference between the versions.",
+    "Tokens per row: 1024 \u2192 1024 (+0 %)."
+  ]
+}

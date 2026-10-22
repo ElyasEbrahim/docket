@@ -161,3 +161,14 @@ def test_labels_of_a_removed_option_count_as_wrong_for_the_threshold():
     assert abs(cal["accuracy"] - 2 / 3) < 1e-9 and cal["threshold"] is None    # true precision 67 %: no guarantee
     kept = [i for i, l in enumerate(labels) if l != "technical"]
     assert calibration.fit(v2, [answers[i] for i in kept], [labels[i] for i in kept], 0.9)["threshold"] is not None
+
+
+def test_small_label_sets_warn_when_only_one_version_gets_a_guarantee():
+    r = {"n": 300, "calibration_labels": 80, "calibration": {"current": {"auto_share": 0.78, "precision_target": 0.9},
+                                                   "new": {"auto_share": None, "precision_target": 0.9}},
+         "excess_ci": (0.0, 0.0), "changed": 0.01, "noise": 0.01, "labels": 80, "disagreements": 3,
+         "disagreements_labelled": 3, "disagreements_right": {"current": 0, "new": 1, "neither": 0},
+         "sign_test_p": 1.0, "gain_from": "disagreements", "accuracy_gain": 0.003, "accuracy_gain_ci": (0.0, 0.01)}
+    reasons = compare._verdict(r)["reasons"]
+    assert any("partly chance" in x for x in reasons)
+    assert any("between 0.0 pp less" in x for x in reasons)          # never "-0.0"

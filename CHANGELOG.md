@@ -6,6 +6,21 @@ Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repo
 
 **Release 0.1.0a2.** Everything below, from #15 and #16, plus:
 
+### Research (#18)
+- **A review of recent work, tested on our own answers** ([docs/research/2026-10-frontier-review.md](docs/research/2026-10-frontier-review.md)). `jevbench frontier` re-runs the five offline experiments, with no API calls.
+  - **The most important finding: the overall precision guarantee hides weak answers.** Under the 90 % guarantee, auto-accepted Kubernetes *testing* routes were right 54 % of the time; on CFPB, *credit card* answers 53 %. Precision per answer is next (#19).
+  - **Review planning with a whole-column error guarantee (PAC labels) holds on our data** (#20).
+  - **Re-running `calibrate` as labels arrive stays within its 5 % error limit** (0.6–4.2 %).
+  - **Not adopted:**
+    - labelling where the model is unsure, for counts: coverage fell to 45–63 % for one answer;
+    - asking twice: no accuracy gain.
+- **jev-1.14.0 vs 1.13.0 on Kubernetes routing ($0.026).** No change beyond run-to-run noise (1.0 % vs 1.0 %), and +0.3 pp accuracy [−0.7, +1.7]. 1.14 is better calibrated raw (0.045 vs 0.060). Kept 1.13; v3 retired.
+
+### Fixed (#18)
+- `compare` paired every row with the active version's *latest* re-ask, so a later comparison changed an earlier one's report. Each row now uses the re-ask nearest in time to the new version's answer, with a regression test.
+- `compare` warns that, with fewer than 150 labels, one version getting a guarantee and the other not may be chance.
+- Report text: "-0.0 pp" and "1 rows".
+
 ### Added (#17)
 - `compare --wait SECONDS`: queue the comparison and wait for the worker that is already running to judge it (the normal setup); `--run` remains for when no worker runs. `revise` now suggests it.
 - The quickstart has a step that tries a change before switching it on: `revise` with team descriptions (`teams.json`), `compare --wait`, then `promote`, which recalibrates. Re-run end to end on Jev, with every sample output refreshed (≈ $0.004).

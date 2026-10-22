@@ -14,6 +14,7 @@
   replay      insert recent Kubernetes issues into an empty demo.k8s_live, in order, at a steady rate
   ppivalidate do PPI intervals hold on real model errors? (stored answers, no API calls)
   comparevalidate was `pgdocket compare` right? its verdict against all human labels (no API calls)
+  frontier    ideas from recent research, tested on stored answers (no API calls)
 """
 import argparse
 import json
@@ -89,7 +90,10 @@ def main(argv=None):
     rp.add_argument("--create-only", action="store_true", help="only (re)create the empty demo.k8s_live table")
 
     sub.add_parser("ppivalidate")
-    sub.add_parser("comparevalidate")
+    cv = sub.add_parser("comparevalidate")
+    cv.add_argument("--version", type=int, default=2, help="the k8s_route version compared with the active one")
+    cv.add_argument("--out", default="results/compare-k8s-descriptions")
+    sub.add_parser("frontier")
     sub.add_parser("cachecheck")
     sub.add_parser("experiments")
 
@@ -159,9 +163,12 @@ def main(argv=None):
     elif args.cmd == "ppivalidate":
         from . import ppivalidate
         print("report:", ppivalidate.run() + "/report.md")
+    elif args.cmd == "frontier":
+        from . import frontier
+        print("report:", frontier.run() + "/report.md")
     elif args.cmd == "comparevalidate":
         from . import comparevalidate
-        print("report:", comparevalidate.run() + "/validation.md")
+        print("report:", comparevalidate.run(version=args.version, out_dir=args.out) + "/validation.md")
     elif args.cmd == "cachecheck":
         print(json.dumps(runner.cache_check(), indent=2))
     elif args.cmd == "experiments":

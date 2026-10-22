@@ -382,3 +382,30 @@ def test_compare_waits_for_a_running_worker(env, capsys):
     assert "20 rows queued" in out and "waited: comparison judged" in out and "· 20 rows compared" in out
     assert "not done yet" not in out
     ledger.retire(env["owner"], "routes", ver)
+
+
+def test_each_comparison_keeps_its_own_noise_baseline(env):
+    """A later comparison re-asks the active version again; an earlier report must not pick up those re-asks."""
+    from pgdocket import compare
+    quiet = lambda: Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+
+    def noise(version):
+        with psycopg.connect(env["owner"]) as c:
+            d = compare.fetch(c, "routes", version)
+        return compare.analyse(d["spec_old"], d["spec_new"], d["rows"], n_boot=100)["noise"]
+
+    a, _ = ledger.revise(env["owner"], "routes", question="Which team should take this ticket?")
+    ledger.compare_enqueue(env["owner"], "routes", a, 30)
+    quiet()
+    assert noise(a) == 0
+    FakeSystemOne.answer_override = {"s": "b"}              # the model now says billing for sales tickets
+    try:
+        b, _ = ledger.revise(env["owner"], "routes", question="Which team should own this request?")
+        ledger.compare_enqueue(env["owner"], "routes", b, 30)
+        quiet()
+    finally:
+        FakeSystemOne.answer_override = {}
+    assert noise(b) > 0                                     # b's re-asks saw the changed model
+    assert noise(a) == 0                                    # a keeps the re-asks made at its own time
+    ledger.retire(env["owner"], "routes", a)
+    ledger.retire(env["owner"], "routes", b)

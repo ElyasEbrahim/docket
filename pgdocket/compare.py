@@ -119,6 +119,10 @@ def _fit(spec, answers, labels, use, precision_target):
             "ece_calibrated": cal["ece_calibrated"], "threshold": t, "auto_share": auto}
 
 
+def _rows(n):
+    return f"{n} row" if n == 1 else f"{n} rows"
+
+
 def sign_test(a, b):
     """Two-sided exact sign test: a wins against b wins, with ties (neither right) left out."""
     k = a + b
@@ -159,7 +163,7 @@ def _verdict(r):
             reasons.append(acc + " The new version is less accurate.")
         else:
             verdict = "no clear difference"
-            reasons.append(acc + f" No difference is detectable: the new version is between {100 * -glo:.1f} pp less "
+            reasons.append(acc + f" No difference is detectable: the new version is between {100 * max(0.0, -glo):.1f} pp less "
                                  f"and {100 * ghi:.1f} pp more accurate.")
         if r.get("labels_not_options_of_new"):
             reasons.append(f"{r['labels_not_options_of_new']} labels are not options of the new version and count as wrong for it.")
@@ -167,11 +171,11 @@ def _verdict(r):
         verdict = "needs labels"
         todo = r["disagreements"] - r["disagreements_labelled"]
         reasons.append(f"Which version is right can't be judged yet: {r['labels']} random-sample labels (need {MIN_LABELS}+), "
-                       f"{r['disagreements_labelled']} of {r['disagreements']} disagreements labelled. Labelling the {todo} "
-                       "rows where the versions disagree is enough (`--export-disagreements`).")
+                       f"{r['disagreements_labelled']} of {r['disagreements']} disagreements labelled. Labelling the {_rows(todo)} "
+                       "where the versions disagree is enough (`--export-disagreements`).")
     if verdict == "no clear difference" and r.get("gain_from") == "random labels" and r["disagreements"]:
         todo = r["disagreements"] - r["disagreements_labelled"]
-        reasons.append(f"To narrow this, label the {todo} rows where the versions disagree (`--export-disagreements`): "
+        reasons.append(f"To narrow this, label the {_rows(todo)} where the versions disagree (`--export-disagreements`): "
                        f"that measures the difference on all {r['n']} rows.")
     c = r.get("calibration") or {}
     if c.get("current") and c.get("new"):
@@ -180,6 +184,10 @@ def _verdict(r):
                        f"version calibrated on the same {r['calibration_labels']} labels as `calibrate` would use: current "
                        f"{share(c['current'])} of compared rows, "
                        f"new {share(c['new'])}.")
+        if r["calibration_labels"] < 150 and (c["current"]["auto_share"] is None) != (c["new"]["auto_share"] is None):
+            reasons.append(f"With {r['calibration_labels']} labels, whether a guarantee can be certified at all is partly "
+                           "chance: on Kubernetes routing, 80 random labels certified 90 % in only 54–66 % of draws. "
+                           "Label more rows (150–200) before reading this as a difference between the versions.")
     if "tokens_per_row_new" in r:
         to, tn = r["tokens_per_row_old"], r["tokens_per_row_new"]
         cost = f"Tokens per row: {to:.0f} → {tn:.0f} ({100 * (tn / to - 1):+.0f} %)."
@@ -202,18 +210,22 @@ def fetch(conn, name, version):
                               (did, [active, version])).fetchall())
     if version not in specs:
         raise SystemExit(f"{name} has no version {version}")
+    # each row's noise baseline is the re-ask of the active version made closest in time to the new version's answer,
+    # so a later comparison (which re-asks again) doesn't change this one's report
     rows = conn.execute("""
-        WITH probe AS (
-            SELECT DISTINCT ON (row_key) row_key, answer FROM docket.judgment
-            WHERE decision_id = %(d)s AND version = %(a)s AND purpose = 'probe' ORDER BY row_key, id DESC)
-        SELECT p.row_key, jo.answer, p.answer, jn.answer, l.label, l.sampling, jo.tokens, jn.tokens
-        FROM probe p
-        JOIN docket.current co ON co.decision_id = %(d)s AND co.version = %(a)s AND co.row_key = p.row_key
+        SELECT co.row_key, jo.answer, pr.answer, jn.answer, l.label, l.sampling, jo.tokens, jn.tokens
+        FROM docket.current co
         JOIN docket.judgment jo ON jo.id = co.judgment_id
-        LEFT JOIN docket.current cn ON cn.decision_id = %(d)s AND cn.version = %(v)s AND cn.row_key = p.row_key
+        LEFT JOIN docket.current cn ON cn.decision_id = %(d)s AND cn.version = %(v)s AND cn.row_key = co.row_key
         LEFT JOIN docket.judgment jn ON jn.id = cn.judgment_id
-        LEFT JOIN docket.label l ON l.decision_id = %(d)s AND l.row_key = p.row_key
-        ORDER BY p.row_key""", {"d": did, "a": active, "v": version}).fetchall()
+        JOIN LATERAL (
+            SELECT j.answer FROM docket.judgment j
+            WHERE j.decision_id = %(d)s AND j.version = %(a)s AND j.purpose = 'probe' AND j.row_key = co.row_key
+            ORDER BY abs(extract(epoch FROM j.judged_at - coalesce(jn.judged_at, now()))), j.id DESC
+            LIMIT 1) pr ON true
+        LEFT JOIN docket.label l ON l.decision_id = %(d)s AND l.row_key = co.row_key
+        WHERE co.decision_id = %(d)s AND co.version = %(a)s
+        ORDER BY co.row_key""", {"d": did, "a": active, "v": version}).fetchall()
     pending = pending_count(conn, did, active, version)
     cols = ("row_key", "old", "probe", "new", "label", "sampling", "tokens_old", "tokens_new")
     return {"decision_id": did, "active": active, "version": version, "spec_old": specs[active], "spec_new": specs[version],

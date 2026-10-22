@@ -46,13 +46,15 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 
 - [x] `docket.label` with sampling recorded (`random` / `all` / `manual`); import from a column or CSV (#13, #14)
 - [ ] Stratified review queue with inclusion probabilities
+- [ ] **Precision per answer** (#19): report it with flags; optional per-answer guarantee. The overall guarantee hid answers right only 54 % of the time ([review](docs/research/2026-10-frontier-review.md))
+- [ ] **`pgdocket plan`** (#20): how much review keeps the whole column's error ≤ ε (probably approximately correct labels); tested on stored answers
 - [x] Calibrators (temperature with clamped zeros, Platt) fitted from labels, stored on the version, applied in SQL by `docket.calibrated()` (#13)
 - [x] Precision threshold with a guarantee (fixed-sequence testing, Clopper–Pearson) in `check` and `calibrate`
-- [ ] Recall targets
+- [ ] Recall targets (BARGAIN's adaptive labelling is the reference, SIGMOD 2026)
 - [x] `docket.estimate()` / `pgdocket estimate`: PPI++ in SQL, with a reliability flag and refusal when labels in scope can't support an interval (#14)
 - [ ] Review-budget planner: labels needed for a target CI width or guarantee
 - [x] **Coverage-test suite** (simulation) in CI for the threshold guarantee and the count intervals
-- [ ] Stratified label sampling (rare answers estimable with fewer labels)
+- [ ] Stratified label sampling (rare answers estimable with fewer labels); stratified PPI is the next candidate. Uncertainty-guided labelling was tested and broke coverage (#18)
 
 **Exit:** all coverage tests pass at their stated rates.
 
@@ -65,6 +67,7 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 - [ ] Backend comparison report (accuracy, ECE, cost, latency) on the same gold set
 - [ ] Option-order debiasing for `choice` (on only if Phase 0 showed it helps)
 - [ ] Instruction-injection flag decision and consistency re-checks → review queue
+- [ ] Drift alarms from predictions plus a few labels (prediction-powered risk monitoring, ICML 2026)
 
 **Exit:** backend comparison report on two public datasets.
 
