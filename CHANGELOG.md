@@ -6,6 +6,12 @@ Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repo
 
 **Release 0.1.0a2.** Everything below, from #15 and #16, plus:
 
+### Added (review planning, #20)
+- **`pgdocket plan NAME --max-error ε`:** how many rows people must review so that at most ε of the column is wrong, with 95 % confidence. The model keeps its most confident answers. It prints a table for 10 % down to 1 %, says how many random labels a target needs when it can't be proven yet, and `--export` writes the review queue, least confident first.
+  - **Method:** probably approximately correct labels (Candès, Ilyas & Zrnic, 2025), with a one-sided Clopper–Pearson bound on the share of rows kept and wrong, scanned from the safest cut down.
+  - **Simulation (in CI):** failures 0.7–2.5 %, against 5 % allowed.
+  - **Live Kubernetes decision:** with 80 labels, a ≤ 10 % plan reviewed 29 issues and left the column 5.0 % wrong, checked against every human label. Write-up: `docs/phase1/review-planning.md`.
+
 ### Added (precision per answer, #19)
 - **`calibrate`, `check`, `compare` and `promote` report precision per answer** among the auto-accepted rows, with 95 % bounds. They flag answers whose upper bound is below the target.
   - **Why:** the guarantee covers all accepted rows together and could hide weak answers. On Kubernetes routing, *testing* was right 7 times in 13 under the overall 90 % guarantee. The re-analysed report now says so and recommends what to do.

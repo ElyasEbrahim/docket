@@ -443,3 +443,23 @@ def test_per_answer_guarantee_in_the_view_and_across_promote(env):
     Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
     p = ledger.promote(env["owner"], "mail", ver)
     assert p["calibration"]["mode"] == "per answer" and p["calibration"]["thresholds"]["sales"] is None
+
+
+def test_plan_reads_the_view_and_exports_the_review_queue(env, capsys):
+    from pgdocket import cli, plan
+    ledger.import_labels(env["owner"], "mail", column="team", sample=150)      # 150 of the 300 drawn at random
+    with psycopg.connect(env["owner"]) as c:
+        rows = plan.fetch(c, "mail")["rows"]
+    assert len(rows) == 300 and sum(r["label"] is not None for r in rows) == 150
+    p = plan.from_rows(rows, 0.05)
+    lab = [r for r in rows if r["label"] is not None]
+    assert p["ai_error"] == sum(r["answer"] != r["label"] for r in lab) / 150
+    path = os.path.join(os.environ.get("TMPDIR", "/tmp"), f"queue-{uuid.uuid4().hex[:6]}.csv")
+    cli.main(["plan", "--dsn", env["owner"], "mail", "--max-error", "0.05", "--export", path])
+    out = capsys.readouterr().out
+    assert "150 random labels" in out and "must review every row" in out     # every answer is 0.9: no safe cut
+    with open(path, newline="") as f:
+        queue = list(csv.DictReader(f))
+    assert len(queue) == 150 and set(queue[0]) == {"key", "body", "ai_answer", "ai_confidence", "label"}
+    cli.main(["plan", "--dsn", env["owner"], "mail", "--max-error", "0.2"])
+    assert "no review needed" in capsys.readouterr().out                     # 10 % wrong: the AI may keep all

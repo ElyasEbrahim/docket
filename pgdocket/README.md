@@ -1,10 +1,11 @@
 # pgdocket
 
-Four pieces work today:
+Five pieces work today:
 
 - **[`pgdocket check`](#pgdocket-check)**: how trustworthy is an AI decision on your table? Read-only.
 - **[The ledger](#the-ledger)**: decisions stored in Postgres and kept current as rows change.
 - **[Counts with error bars](#counts-with-error-bars)**: how many rows truly have each answer, with a confidence interval.
+- **[Planning human review](#planning-human-review)**: how many rows must people check so the column is at most ε wrong?
 - **[Comparing versions](#comparing-versions)**: is a revised question, option set or model better than the current one?
 
 # `pgdocket check`
@@ -150,6 +151,18 @@ SELECT answer, model_count, estimate, ci_low, ci_high, reliable FROM docket.esti
 - **Only labels drawn at random count.** `--sample N` records labels as random, and so does a CSV imported with `--random`. Everything else needs `--include-manual`.
 - **No labelled example of an answer means no interval.** Nothing measures how often the model is wrong there.
 - **Validation:** coverage tests run in CI, and on 500 real Kubernetes issues the intervals held 98–100 % when reliable and were 30–50 % narrower than labels alone. See [docs/phase1/counts.md](../docs/phase1/counts.md).
+
+# Planning human review
+
+`pgdocket plan` answers *how many rows must people check so that at most ε of this column is wrong?* It keeps the model's answer where it's most confident and sends the rest to people, with a 95 % guarantee on the whole column (probably approximately correct labels).
+
+```bash
+pgdocket plan triage --max-error 0.05 --export review.csv   # the review queue, least confident first
+```
+
+- **What it prints:** how wrong the AI alone is, and, for 10 %, 5 %, 3 %, 2 % and 1 %, how many rows people must review. Where a target can't be proven with the labels you have, it says how many random labels it needs: 59 for 5 %, 99 for 3 %.
+- **Labels:** only random-sample labels count (`label --sample`, or a CSV imported with `--random`). Reviewers are assumed to be right.
+- **Evidence:** on 300 live Kubernetes issues with 80 labels, a ≤ 10 % plan reviewed 29 issues and left the column 5.0 % wrong, checked against every human label. In simulations the guarantee failed in 0.7–2.5 % of trials (5 % allowed). See [docs/phase1/review-planning.md](../docs/phase1/review-planning.md).
 
 # Comparing versions
 

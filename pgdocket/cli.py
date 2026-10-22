@@ -9,6 +9,7 @@
   pgdocket label      import human labels (from a column or a key,label CSV)
   pgdocket calibrate  fit a calibrator and a guaranteed threshold from the labels
   pgdocket estimate   how many rows truly have each answer, with a confidence interval
+  pgdocket plan       how much human review keeps the whole column's error ≤ ε, and the review queue
   pgdocket status     decisions, queue depth, errors, labels, tokens
   pgdocket revise     add a shadow version (new question, options or model) without changing answers
   pgdocket compare    judge a sample under both versions; report what changed beyond run-to-run noise
@@ -119,6 +120,11 @@ def main(argv=None):
     es.add_argument("--where", help="SQL condition on the source table, e.g. \"created_at >= '2026-07-01'\"")
     es.add_argument("--level", type=float, default=0.95)
     es.add_argument("--include-manual", action="store_true", help="also use labels not drawn at random (intervals may be biased)")
+    pl = sub.add_parser("plan", help="how much review keeps the column's error ≤ ε (95 % confidence)")
+    dsn_arg(pl)
+    pl.add_argument("name")
+    pl.add_argument("--max-error", type=float, default=0.05, help="share of judged rows allowed to stay wrong")
+    pl.add_argument("--export", metavar="CSV", help="write the review queue: rows below the cut, least confident first")
     st = sub.add_parser("status", help="decisions, queue, errors, labels, tokens")
     dsn_arg(st)
     rv = sub.add_parser("revise", help="add a shadow version; the view keeps showing the active one")
@@ -178,7 +184,7 @@ def main(argv=None):
         reanalyze(a.folder, a.precision_target)
         print(f"report: {a.folder}/report.md")
         return
-    if a.cmd in ("install", "create", "worker", "label", "calibrate", "estimate", "status", "drop", "revise", "compare",
+    if a.cmd in ("install", "create", "worker", "label", "calibrate", "estimate", "plan", "status", "drop", "revise", "compare",
                  "backfill", "promote", "retire", "versions"):
         if not a.dsn:
             sys.exit("no database: pass --dsn or set DATABASE_URL")
@@ -250,6 +256,8 @@ def _ledger_command(a):
                 print(f"  {r['answer']}: {r['note']}")
         if any(not r["reliable"] for r in rows):
             print("⚠ fewer than 10 labelled rows with or without that answer: label more rows before relying on it")
+    elif a.cmd == "plan":
+        _plan(a, ledger)
     elif a.cmd == "drop":
         if not a.yes:
             sys.exit(f"this deletes decision {a.name} and its whole ledger; re-run with --yes")
@@ -301,6 +309,44 @@ def _ledger_command(a):
         for r in rows:
             print(f"{r['name']:<24} v{r['version']}  judged {r['judged']:>8,}  queued {r['queued']:>6,}  errors {r['errors']:>4,}  "
                   f"labels {r['labels']:>5,}  tokens {r['tokens']:>12,}  {'calibrated' if r['calibrated'] else 'not calibrated'}")
+
+
+def _plan(a, ledger):
+    from . import plan
+    with ledger.connect(a.dsn) as conn:
+        data = plan.fetch(conn, a.name)
+        p = plan.from_rows(data["rows"], a.max_error)
+        pct = lambda x: f"{100 * x:.1f} %"
+        if not p["labels"]:
+            sys.exit(f"{a.name}: no random-sample labels on judged rows; import some with "
+                     f"`pgdocket label {a.name} --from-column … --sample 200` (or a CSV with --random)")
+        print(f"{a.name}: {p['rows']:,} judged rows · {p['labels']} random labels · the AI alone: {pct(p['ai_error'])} wrong "
+              f"(at most {pct(p['ai_error_upper'])} with 95 % confidence)")
+        print(f"{'at most wrong':>14}  {'people review':>15}  {'the AI keeps':>12}")
+        for t in p["targets"]:
+            mark = "  ←" if t["requested"] else ""
+            if t["review"] is None:
+                print(f"{pct(t['max_error']):>14}  {'not provable':>15}  needs ≥ {t['labels_needed']} random labels{mark}")
+            else:
+                print(f"{pct(t['max_error']):>14}  {t['review']:>7,} ({pct(t['review_share']):>6})  "
+                      f"{p['rows'] - t['review']:>12,}{mark}")
+        chosen = next(t for t in p["targets"] if t["requested"])
+        if chosen["review"] is None:
+            print(f"with {p['labels']} random labels, no plan can show ≤ {pct(a.max_error)}: label at least "
+                  f"{chosen['labels_needed']} at random")
+            return
+        if chosen["review_all"]:
+            print(f"to keep ≤ {pct(a.max_error)} wrong, people must review every row: the labels can't yet vouch for any "
+                  "of the model's answers at this level")
+        elif chosen["review"] == 0:
+            print(f"the model's answers already keep the column ≤ {pct(a.max_error)} wrong (95 % confidence): no review needed")
+        else:
+            print(f"to keep ≤ {pct(a.max_error)} wrong (95 % confidence), people review the {chosen['review']:,} rows whose "
+                  f"confidence is below {chosen['cut']:.3f}; their corrected answers replace the model's")
+        if a.export and chosen["review"]:
+            k = plan.export_queue(conn, a.name, data["rows"], chosen["cut"] if chosen["cut"] is not None else float("inf"),
+                                  a.export)
+            print(f"wrote {k:,} rows to {a.export} (least confident first; rows with a random label are already known)")
 
 
 def _threshold_summary(cal):

@@ -18,7 +18,7 @@ Each candidate had to fix a real gap and keep its guarantee. Where possible, I t
 | --- | --- | --- | --- |
 | **Precision per answer**, not only overall | class-conditional conformal prediction (Ding et al., NeurIPS 2023) | **Adopted** (#19): reported and flagged everywhere; `--per-answer` guarantee | Under the overall 90 % guarantee, auto-accepted *testing* routes were right 54 % of the time; on CFPB, *credit card* 53 % |
 | **Check a new model before switching** (jev-1.14.0, 14 Oct 2026) | TypeSafe docs | **Keep jev-1.13.0 for now**; switching is safe once there are enough labels to recalibrate | 1.14 changed 1.0 % of answers, the same as asking 1.13 again; accuracy 91.3 % → 91.7 % (all 300 labels) |
-| **Review planning** with an error guarantee for the whole column | probably approximately correct labels (Candès, Ilyas & Zrnic, 2025) | **Adopt next** (`pgdocket plan`) | ≤ 5 % errors on Kubernetes routing: review 36 % of issues with 200 labels (19 % if every label were known); the guarantee failed in 2.2 % of trials |
+| **Review planning** with an error guarantee for the whole column | probably approximately correct labels (Candès, Ilyas & Zrnic, 2025) | **Adopted** (#20): `pgdocket plan` | ≤ 5 % errors on Kubernetes routing: review 36 % of issues with 200 labels (19 % if every label were known); the guarantee failed in 2.2 % of trials |
 | Adaptive labelling for thresholds; **recall targets** | BARGAIN (Zeighami, Shankar & Parameswaran, SIGMOD 2026) | **Later**, with recall targets for yes/no decisions | not tested |
 | **Drift alarms** from predictions plus a few labels | prediction-powered risk monitoring (Zhang et al., ICML 2026); Podkopaev & Ramdas | **Later** (Phase 3) | not tested |
 | Stratified counts for rare answers | stratified PPI (Fisch et al., NeurIPS 2024) | **Later**: the next thing to try for counts | not tested |
@@ -78,7 +78,7 @@ Probably approximately correct (PAC) labels guarantee the error of a *whole data
 | CFPB product | 20.2 % | 10 % | 24 % | 67 % | 46 % | 1.3 % / 1.9 % |
 | CFPB product | 20.2 % | 5 % | 49 % | 96 % | 96 % | 0.4 % / 0.0 % |
 
-This answers a question teams actually ask: *how much human review do I need for this column to be at most 5 % wrong?* The guarantee costs about twice the review an omniscient planner would need, and more labels narrow the gap. The paper's importance-weighted version lets people label where it matters most, if they record inclusion probabilities, as [ADR 0003](../adr/0003-human-labels-are-the-oracle.md) already plans. **Proposal:** `pgdocket plan NAME --max-error 0.05` gives the cut, how many rows to review and the review queue.
+This answers a question teams actually ask: *how much human review do I need for this column to be at most 5 % wrong?* The guarantee costs about twice the review an omniscient planner would need, and more labels narrow the gap. The paper's importance-weighted version lets people label where it matters most, if they record inclusion probabilities, as [ADR 0003](../adr/0003-human-labels-are-the-oracle.md) already plans. **Proposal:** `pgdocket plan NAME --max-error 0.05` gives the cut, how many rows to review and the review queue. *Done 2026-10-22 (#20): see [review-planning.md](../phase1/review-planning.md).*
 
 ## 4. Tested and not adopted
 

@@ -47,7 +47,7 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 - [x] `docket.label` with sampling recorded (`random` / `all` / `manual`); import from a column or CSV (#13, #14)
 - [ ] Stratified review queue with inclusion probabilities
 - [x] **Precision per answer** (#19): reported with flags in `calibrate`, `check`, `compare`; `--per-answer` guarantee applied by the view. The overall guarantee hid answers right only 54 % of the time ([review](docs/research/2026-10-frontier-review.md))
-- [ ] **`pgdocket plan`** (#20): how much review keeps the whole column's error ≤ ε (probably approximately correct labels); tested on stored answers
+- [x] **`pgdocket plan`** (#20): how much review keeps the whole column's error ≤ ε (probably approximately correct labels), with the review queue
 - [x] Calibrators (temperature with clamped zeros, Platt) fitted from labels, stored on the version, applied in SQL by `docket.calibrated()` (#13)
 - [x] Precision threshold with a guarantee (fixed-sequence testing, Clopper–Pearson) in `check` and `calibrate`
 - [ ] Recall targets (BARGAIN's adaptive labelling is the reference, SIGMOD 2026)
