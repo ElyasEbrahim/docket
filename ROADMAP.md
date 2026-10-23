@@ -74,7 +74,7 @@ Status as of 2026-10-17: harness built and validated; real Jev run done; the tec
 ## Phase 4: Ship v0.1 (weeks 13–14)
 
 - [ ] Docs site / README, quick start for self-hosted, Supabase, Neon and RDS
-- [x] Docker image + PyPI package prepared (v0.1.0a1; publishing needs the one-time setup in docs/RELEASING.md)
+- [x] Package and Docker image build and install from GitHub (0.1.0a2). Not published to PyPI until there are users (decision 2026-10-23); the release workflow and docs/RELEASING.md stay ready
 - [ ] SQL part listed on PGXN or database.dev
 - [ ] Case study (CFPB or OSHA narratives) with reproducible notebook
 - [ ] Launch post; link from the pg-jev discussion

@@ -1,5 +1,7 @@
 # Releasing pgdocket
 
+> **Not in use (decision 2026-10-23).** pgdocket is installed from GitHub (`pip install "git+https://github.com/ElyasEbrahim/pgdocket"`) until people use it. Don't push `v*` tags: the release workflow would try to publish to PyPI, which isn't set up. This page documents how to publish when that changes.
+
 A release publishes three things from one version tag:
 
 | Where | What |

@@ -42,7 +42,7 @@
 ## 安装
 
 ```bash
-pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # 需要 Python 3.10+；PyPI 版本即将发布
+pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # 需要 Python 3.10+；直接从 GitHub 安装
 pgdocket --version
 ```
 

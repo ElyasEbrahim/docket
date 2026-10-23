@@ -40,7 +40,7 @@ Write-up for a general audience: [*Same row, different answer*](docs/notes/2026-
 ## Install
 
 ```bash
-pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # Python 3.10+; PyPI release coming
+pip install "git+https://github.com/ElyasEbrahim/pgdocket"      # Python 3.10+; installed from GitHub
 pgdocket --version
 ```
 
