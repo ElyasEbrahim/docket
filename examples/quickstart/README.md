@@ -68,7 +68,7 @@ docker compose exec db psql -U postgres -d shop -c \
 #  24 | billing   | 0.57 | 0.63 | t
 ```
 
-`auto = true` means the model's own score clears the threshold that keeps precision ≥ 85 % at 95 % confidence; here 58 of 61 tickets. `confidence` is the calibrated probability, for reading.
+`auto = true` means the model's own score clears the threshold that keeps precision ≥ 85 % at 95 % confidence: 58 of 61 tickets in the run shown. Your threshold and count will differ a little, because the model's scores vary from run to run and the threshold is fitted on them; in another run all 61 cleared it. `confidence` is the calibrated probability, for reading.
 
 **Why 85 % and not 90 %?** With only 60 labels, even 58 of 60 correct can't *prove* 90 % at 95 % confidence, so `calibrate --precision-target 0.9` honestly reports that no threshold qualifies. More labels make stricter targets provable. 100–200 is a good start.
 
