@@ -14,7 +14,7 @@ docker compose up -d --wait db
 
 ```bash
 docker compose run --rm pgdocket install
-# applied: 001, 002, 003, 004
+# applied: 001, 002, 003, 004, 005
 ```
 
 **2. Declare the decision.** Existing rows are queued; new and edited rows will be too:
@@ -26,10 +26,11 @@ docker compose run --rm pgdocket create triage --table shop.tickets --key id --t
 # decision triage (id 1) created; 60 rows queued; read it from docket.v_triage
 ```
 
-**3. Start the worker.** It judges the queue, then waits for new rows:
+**3. Start the worker.** It judges the queue, then waits for new rows. The 60 tickets take about 10 seconds; until then they show as `pending`:
 
 ```bash
 docker compose up -d pgdocket
+docker compose run --rm pgdocket status            # wait until it says "queued 0"
 docker compose exec db psql -U postgres -d shop -c \
   "SELECT key, status, answer, round(confidence::numeric, 2) AS confidence FROM docket.v_triage ORDER BY key LIMIT 5"
 #  key | status |  answer   | confidence
@@ -38,7 +39,7 @@ docker compose exec db psql -U postgres -d shop -c \
 #    3 | judged | account   |       0.78
 ```
 
-**4. Add a ticket and watch it get decided** (about a second):
+**4. Add a ticket and watch it get decided.** The worker answers within a second or two; query again if it still says `pending`:
 
 ```bash
 docker compose exec db psql -U postgres -d shop -c \
@@ -47,7 +48,7 @@ docker compose exec db psql -U postgres -d shop -c "SELECT key, status, answer F
 #  61 | judged | billing
 ```
 
-**5. Calibrate on your labels.** Raw confidence is not a probability yet:
+**5. Calibrate on your labels.** Raw confidence is not a probability yet. Calibrate once the worker has answered the tickets, so the labels have answers to compare with:
 
 ```bash
 docker compose run --rm pgdocket label triage --from-column team

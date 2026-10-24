@@ -120,7 +120,7 @@ def main(argv=None):
     es.add_argument("--where", help="SQL condition on the source table, e.g. \"created_at >= '2026-07-01'\"")
     es.add_argument("--level", type=float, default=0.95)
     es.add_argument("--include-manual", action="store_true", help="also use labels not drawn at random (intervals may be biased)")
-    pl = sub.add_parser("plan", help="how much review keeps the column's error ≤ ε (95 % confidence)")
+    pl = sub.add_parser("plan", help="how much review keeps the column's error ≤ ε (95 %% confidence)")
     dsn_arg(pl)
     pl.add_argument("name")
     pl.add_argument("--max-error", type=float, default=0.05, help="share of judged rows allowed to stay wrong")
@@ -231,8 +231,14 @@ def _ledger_command(a):
         kind = "random sample" if (a.sample or a.random) else ("whole column" if a.from_column else "manual")
         print(f"{n} labels imported for {a.name} ({kind})")
     elif a.cmd == "calibrate":
-        cal = ledger.calibrate(a.dsn, a.name, a.precision_target, include_manual=a.include_manual,
-                               per_answer=a.per_answer)
+        try:
+            cal = ledger.calibrate(a.dsn, a.name, a.precision_target, include_manual=a.include_manual,
+                                   per_answer=a.per_answer)
+        except ValueError as e:                       # too few labelled rows with an answer: say why, no traceback
+            queued = next((r["queued"] for r in ledger.status(a.dsn) if r["name"] == a.name), 0)
+            hint = (f" {queued:,} rows are still queued: wait for the worker to answer them (`pgdocket status` shows the "
+                    "queue), then run calibrate again." if queued else " Label more rows with `pgdocket label`.")
+            sys.exit(f"{a.name}: can't calibrate yet: {e}.{hint}")
         print(f"{a.name}: {cal['n_labels']} labels · calibration error {cal['ece_raw']:.3f} → {cal['ece_calibrated']:.3f} · "
               + _threshold_summary(cal))
         for line in _per_answer_notes(cal, a.name):

@@ -463,3 +463,17 @@ def test_plan_reads_the_view_and_exports_the_review_queue(env, capsys):
     assert len(queue) == 150 and set(queue[0]) == {"key", "body", "ai_answer", "ai_confidence", "label"}
     cli.main(["plan", "--dsn", env["owner"], "mail", "--max-error", "0.2"])
     assert "no review needed" in capsys.readouterr().out                     # 10 % wrong: the AI may keep all
+
+
+def test_calibrate_before_the_worker_ran_says_what_to_do(env):
+    """A newcomer who calibrates straight after `label` gets a plain message, not a traceback."""
+    from pgdocket import cli
+    with psycopg.connect(env["owner"], autocommit=True) as c:
+        c.execute("CREATE TABLE shop.fresh (id int PRIMARY KEY, body text, team text)")
+        c.execute("INSERT INTO shop.fresh SELECT i, 'billing', 'billing' FROM generate_series(1, 40) i")
+    ledger.create(env["owner"], "fresh", "shop.fresh", "id", ["body"], _spec(env["url"]))
+    ledger.import_labels(env["owner"], "fresh", column="team")
+    with pytest.raises(SystemExit, match="can't calibrate yet: only 0 labeled rows .* 40 rows are still queued"):
+        cli.main(["calibrate", "--dsn", env["owner"], "fresh"])
+    Worker(env["owner"], poll=0.1, log=lambda *a: None).run(once=True)
+    cli.main(["calibrate", "--dsn", env["owner"], "fresh"])                      # now it works

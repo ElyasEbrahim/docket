@@ -2,6 +2,16 @@
 
 Notable changes, newest first. Dates are UTC; `#n` refers to issues in this repository.
 
+## 2026-10-24
+
+### Fixed (found by a fresh-clone test: clone from GitHub, follow the README and quickstart literally)
+- **`pgdocket --help` crashed** on Python 3.10 and 3.12: a `%` in the `plan` help text was read as a format code. A test now runs `--help` for the command and all 17 subcommands.
+- **`calibrate` run before the worker had answered the rows ended in a stack trace.** It now says what's wrong (e.g. "only 0 labeled rows with answers… 40 rows are still queued: wait for the worker…") and exits cleanly, with an integration test.
+- **Quickstart:**
+  - Step 1 now shows the five migrations.
+  - Step 3 says to wait about 10 seconds for the worker, with `pgdocket status`; queried straight away, tickets show as `pending`.
+  - Steps 4 and 5 say when the answers are ready.
+
 ## 2026-10-22
 
 **Release 0.1.0a2.** Everything below, from #15 and #16, plus:
